@@ -24,11 +24,11 @@ def split_multiple(string, delimiter=",", strip_chars=None):
 SentryOption = collections.namedtuple("SentryOption", ["key", "default", "converter"])
 
 # Mapping of Odoo logging level -> Python stdlib logging library log level.
-LOG_LEVEL_MAP = {
-    getattr(odoo.loglevels, "LOG_%s" % x): getattr(logging, x)
-    for x in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET")
-}
-DEFAULT_LOG_LEVEL = "warn"
+LOG_LEVEL_MAP = dict([
+    (getattr(odoo.loglevels, 'LOG_%s' % x), getattr(logging, x))
+    for x in ('CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'NOTSET')
+])
+DEFAULT_LOG_LEVEL = 'warn'
 
 ODOO_USER_EXCEPTIONS = [
     "odoo.exceptions.AccessDenied",
@@ -49,18 +49,20 @@ PROCESSORS = (
 )
 DEFAULT_PROCESSORS = ",".join(PROCESSORS)
 
-EXCLUDE_LOGGERS = ("werkzeug",)
-DEFAULT_EXCLUDE_LOGGERS = ",".join(EXCLUDE_LOGGERS)
+EXCLUDE_LOGGERS = (
+    'werkzeug',
+)
+DEFAULT_EXCLUDE_LOGGERS = ','.join(EXCLUDE_LOGGERS)
 
-DEFAULT_TRANSPORT = "threaded"
+DEFAULT_TRANSPORT = 'threaded'
 
 
 def select_transport(name=DEFAULT_TRANSPORT):
     return {
-        "requests_synchronous": raven.transport.RequestsHTTPTransport,
-        "requests_threaded": raven.transport.ThreadedRequestsHTTPTransport,
-        "synchronous": raven.transport.HTTPTransport,
-        "threaded": raven.transport.ThreadedHTTPTransport,
+        'requests_synchronous': raven.transport.RequestsHTTPTransport,
+        'requests_threaded': raven.transport.ThreadedRequestsHTTPTransport,
+        'synchronous': raven.transport.HTTPTransport,
+        'threaded': raven.transport.ThreadedHTTPTransport,
     }.get(name, DEFAULT_TRANSPORT)
 
 
