@@ -33,11 +33,9 @@ Odoo.
 .. contents::
    :local:
 
-Configuration
-=============
 
-The following additional configuration options can be added to your Odoo
-configuration file:
+This module allows painless `Sentry <https://sentry.io/>`__ integration with
+Odoo.
 
 =============================  ====================================================================  ==========================================================
         Option                                          Description                                                         Default
@@ -67,16 +65,6 @@ configuration file:
                                                                                                      odoo.exceptions.Warning,
                                                                                                      odoo.exceptions.except_orm``
 
-``sentry_processors``          A string of comma-separated processor classes which will be applied   ``raven.processors.SanitizePasswordsProcessor,
-                               on an event before sending it to Sentry.                              odoo.addons.sentry.logutils.SanitizeOdooCookiesProcessor``
-
-``sentry_transport``           Transport class which will be used to send events to Sentry.          ``threaded``
-                               Possible values: *threaded*: spawns an async worker for processing
-                               messages, *synchronous*: a synchronous blocking transport;
-                               *requests_threaded*: an asynchronous transport using the *requests*
-                               library; *requests_synchronous* - blocking transport using the
-                               *requests* library.
-
 ``sentry_include_context``     If enabled, additional context data will be extracted from current    ``True``
                                HTTP request and user session (if available). This has no effect
                                for Cron jobs, as no request/session is available inside a Cron job.
@@ -94,11 +82,14 @@ configuration file:
 =============================  ====================================================================  ==========================================================
 
 Other `client arguments
-<https://docs.sentry.io/clients/python/advanced/#client-arguments>`_ can be
+<https://docs.sentry.io/platforms/python/configuration/>`_ can be
 configured by prepending the argument name with *sentry_* in your Odoo config
-file. Currently supported additional client arguments are: ``install_sys_hook,
-include_paths, exclude_paths, machine, auto_log_stacks, capture_locals,
-string_max_length, list_max_length, site, include_versions, environment``.
+file. Currently supported additional client arguments are: ``with_locals,
+max_breadcrumbs, release, environment, server_name, shutdown_timeout,
+in_app_include, in_app_exclude, default_integrations, dist, sample_rate,
+send_default_pii, http_proxy, https_proxy, request_bodies, debug, 
+attach_stacktrace, ca_certs, propagate_traces, traces_sample_rate, 
+auto_enabling_integrations``.
 
 Example Odoo configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -110,14 +101,42 @@ Below is an example of Odoo configuration file with *Odoo Sentry* options::
     sentry_enabled = true
     sentry_logging_level = warn
     sentry_exclude_loggers = werkzeug
-    sentry_ignore_exceptions = odoo.exceptions.AccessDenied,odoo.exceptions.AccessError,odoo.exceptions.MissingError,odoo.exceptions.RedirectWarning,odoo.exceptions.UserError,odoo.exceptions.ValidationError,odoo.exceptions.Warning,odoo.exceptions.except_orm
-    sentry_processors = raven.processors.SanitizePasswordsProcessor,odoo.addons.sentry.logutils.SanitizeOdooCookiesProcessor
-    sentry_transport = threaded
+    sentry_ignore_exceptions = odoo.exceptions.AccessDenied,
+        odoo.exceptions.AccessError,odoo.exceptions.MissingError,
+        odoo.exceptions.RedirectWarning,odoo.exceptions.UserError,
+        odoo.exceptions.ValidationError,odoo.exceptions.Warning,
+        odoo.exceptions.except_orm
     sentry_include_context = true
     sentry_environment = production
-    sentry_auto_log_stacks = false
-    sentry_odoo_dir = /home/odoo/odoo/
     sentry_release = 1.3.2
+    sentry_odoo_dir = /home/odoo/odoo/
+    
+
+**Table of contents**
+
+.. contents::
+   :local:
+
+Installation
+============
+
+The module can be installed just like any other Odoo module, by adding the
+module's directory to Odoo *addons_path*. In order for the module to correctly
+wrap the Odoo WSGI application, it also needs to be loaded as a server-wide
+module. This can be done with the ``server_wide_modules`` parameter in your
+Odoo config file or with the ``--load`` command-line parameter.
+
+This module additionally requires the sentry-sdk Python package to be available on
+the system. It can be installed using pip::
+
+    pip install sentry-sdk
+
+Configuration
+=============
+
+The following additional configuration options can be added to your Odoo
+configuration file:
+
 
 Usage
 =====
@@ -163,6 +182,7 @@ Authors
 * Mohammed Barsi
 * Versada
 * Nicolas JEUDY
+* Vauxoo
 
 Contributors
 ~~~~~~~~~~~~
@@ -171,6 +191,11 @@ Contributors
 * Andrius Preimantas <andrius@versada.eu>
 * Naglis Jonaitis <naglis@versada.eu>
 * Atte Isopuro <atte.isopuro@avoin.systems>
+
+Other credits
+~~~~~~~~~~~~~
+
+* Vauxoo
 
 Maintainers
 ~~~~~~~~~~~

@@ -12,7 +12,14 @@
     "Odoo Community Association (OCA)",
     "license": "AGPL-3",
     "application": False,
-    "installable": True,
-    "external_dependencies": {"python": ["raven"]},
-    "depends": ["base"],
+    'installable': True,
+    'external_dependencies': {
+        'python': [
+            'sentry_sdk',
+        ]
+    },
+    'depends': [
+        'base',
+    ],
+    'post_load': 'post_load',
 }
