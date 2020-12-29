@@ -4,29 +4,30 @@
 import os.path
 import urllib.parse
 
-from .processor import SanitizePasswordsProcessor
-from .generalutils import get_environ
 from sentry_sdk._compat import text_type
 from werkzeug import datastructures
 
+from .generalutils import get_environ
+from .processor import SanitizePasswordsProcessor
+
 
 def get_request_info(request):
-    """ Returns context data extracted from :param:`request`.
-        Heavily based on flask integration for Sentry: https://git.io/vP4i9.
+    """Returns context data extracted from :param:`request`.
+    Heavily based on flask integration for Sentry: https://git.io/vP4i9.
     """
     urlparts = urllib.parse.urlsplit(request.url)
     return {
-        'url': '%s://%s%s' % (urlparts.scheme, urlparts.netloc, urlparts.path),
-        'query_string': urlparts.query,
-        'method': request.method,
-        'headers': dict(datastructures.EnvironHeaders(request.environ)),
-        'env': dict(get_environ(request.environ)),
+        "url": "{}://{}{}".format(urlparts.scheme, urlparts.netloc, urlparts.path),
+        "query_string": urlparts.query,
+        "method": request.method,
+        "headers": dict(datastructures.EnvironHeaders(request.environ)),
+        "env": dict(get_environ(request.environ)),
     }
 
 
 def get_extra_context(request):
-    """ Extracts additional context from the current request
-        (if such is set).
+    """Extracts additional context from the current request
+    (if such is set).
     """
     try:
         session = getattr(request, "session", {})
@@ -34,16 +35,16 @@ def get_extra_context(request):
         ctx = {}
     else:
         ctx = {
-            'tags': {
-                'database': session.get('db', None),
+            "tags": {
+                "database": session.get("db", None),
             },
-            'user': {
-                'email': session.get('login', None),
-                'id': session.get('uid', None),
+            "user": {
+                "email": session.get("login", None),
+                "id": session.get("uid", None),
             },
-            'extra': {
-                'context': session.get('context', {}),
-            }
+            "extra": {
+                "context": session.get("context", {}),
+            },
         }
         if request.httprequest:
             ctx.update({"request": get_request_info(request.httprequest)})
@@ -51,13 +52,15 @@ def get_extra_context(request):
 
 
 class SanitizeOdooCookiesProcessor(SanitizePasswordsProcessor):
-    """ Custom :class:`raven.processors.Processor`.
-        Allows to sanitize sensitive Odoo cookies, namely the "session_id" cookie.
+    """Custom :class:`raven.processors.Processor`.
+    Allows to sanitize sensitive Odoo cookies, namely the "session_id" cookie.
     """
 
-    KEYS = frozenset([
-        'session_id',
-    ])
+    KEYS = frozenset(
+        [
+            "session_id",
+        ]
+    )
 
 
 class InvalidGitRepository(Exception):
@@ -65,50 +68,51 @@ class InvalidGitRepository(Exception):
 
 
 def fetch_git_sha(path, head=None):
-    """ >>> fetch_git_sha(os.path.dirname(__file__))
-        Taken from https://git.io/JITmC
+    """>>> fetch_git_sha(os.path.dirname(__file__))
+    Taken from https://git.io/JITmC
     """
     if not head:
-        head_path = os.path.join(path, '.git', 'HEAD')
+        head_path = os.path.join(path, ".git", "HEAD")
         if not os.path.exists(head_path):
             raise InvalidGitRepository(
-                'Cannot identify HEAD for git repository at %s' % (path,))
+                "Cannot identify HEAD for git repository at {}".format(path)
+            )
 
-        with open(head_path, 'r') as fp:
+        with open(head_path, "r") as fp:
             head = text_type(fp.read()).strip()
 
-        if head.startswith('ref: '):
+        if head.startswith("ref: "):
             head = head[5:]
-            revision_file = os.path.join(
-                path, '.git', *head.split('/')
-            )
+            revision_file = os.path.join(path, ".git", *head.split("/"))
         else:
             return head
     else:
-        revision_file = os.path.join(path, '.git', 'refs', 'heads', head)
+        revision_file = os.path.join(path, ".git", "refs", "heads", head)
 
     if not os.path.exists(revision_file):
-        if not os.path.exists(os.path.join(path, '.git')):
+        if not os.path.exists(os.path.join(path, ".git")):
             raise InvalidGitRepository(
-                '%s does not seem to be the root of a git repository' % (path,))
+                "{} does not seem to be the root of a git repository".format(path)
+            )
 
         # Check for our .git/packed-refs' file since a `git gc` may have run
         # https://git-scm.com/book/en/v2/Git-Internals-Maintenance-and-Data-Recovery
-        packed_file = os.path.join(path, '.git', 'packed-refs')
+        packed_file = os.path.join(path, ".git", "packed-refs")
         if os.path.exists(packed_file):
             with open(packed_file) as fh:
                 for line in fh:
                     line = line.rstrip()
-                    if line and line[:1] not in ('#', '^'):
+                    if line and line[:1] not in ("#", "^"):
                         try:
-                            revision, ref = line.split(' ', 1)
+                            revision, ref = line.split(" ", 1)
                         except ValueError:
                             continue
                         if ref == head:
                             return text_type(revision)
 
         raise InvalidGitRepository(
-            'Unable to find ref to head "%s" in repository' % (head,))
+            'Unable to find ref to head "{}" in repository'.format(head)
+        )
 
     with open(revision_file) as fh:
         return text_type(fh.read()).strip()

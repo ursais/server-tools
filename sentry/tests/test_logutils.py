@@ -7,7 +7,6 @@ from ..logutils import SanitizeOdooCookiesProcessor
 
 
 class TestOdooCookieSanitizer(TransactionCase):
-
     def test_cookie_as_string(self):
         data = {
             "request": {
