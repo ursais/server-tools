@@ -21,6 +21,7 @@ HAS_SENTRY_SDK = True
 try:
     import sentry_sdk
     from sentry_sdk.integrations.logging import ignore_logger
+    from sentry_sdk.integrations.redis import RedisIntegration
     from sentry_sdk.integrations.threading import ThreadingIntegration
     from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
 except ImportError:  # pragma: no cover
@@ -96,6 +97,7 @@ def initialize_sentry(config):
     options["integrations"] = [
         options["logging_level"],
         ThreadingIntegration(propagate_hub=True),
+        RedisIntegration(),
     ]
     # Remove logging_level, since in sentry_sdk is include in 'integrations'
     del options["logging_level"]
