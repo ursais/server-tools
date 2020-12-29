@@ -1,6 +1,7 @@
 The following additional configuration options can be added to your Odoo
 configuration file:
 
+=============================  ====================================================================  ==========================================================
         Option                                          Description                                                         Default
 =============================  ====================================================================  ==========================================================
 ``sentry_dsn``                 Sentry *Data Source Name*. You can find this value in your Sentry     ``''``
@@ -79,4 +80,3 @@ Below is an example of Odoo configuration file with *Odoo Sentry* options::
     sentry_auto_log_stacks = false
     sentry_odoo_dir = /home/odoo/odoo/
     sentry_release = 1.3.2
-=======
