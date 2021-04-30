@@ -1,13 +1,9 @@
 # Copyright (C) 2021 Open Source Integrators
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
-import uuid
-import psycopg2
-import io
 import ast
+import uuid
 
-from datetime import datetime
-
-from odoo import _, api, fields, models, SUPERUSER_ID
+from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import ValidationError
 
 try:
@@ -17,7 +13,8 @@ except ImportError:
 
 
 def _get_external_id(record):
-    # code reference from from odoo BaseModel.__ensure_xml_id() for generating the external_id
+    # code reference from from odoo BaseModel.__ensure_xml_id()
+    # for generating the external_id
     """Create missing external ids for records, and return an
         dict of pairs ``(record, xmlid)`` for the records.
 
@@ -31,11 +28,7 @@ def _get_external_id(record):
 
     modname = "__sync_process__"
     # create missing xml id
-    rec_name = "%s_%s_%s" % (
-        record._table,
-        record.id,
-        uuid.uuid4().hex[:8],
-    )
+    rec_name = "{}_{}_{}".format(record._table, record.id, uuid.uuid4().hex[:8])
     vals = {
         "module": modname,
         "model": record._name,
@@ -66,10 +59,8 @@ class AuditlogLog(models.Model):
     )
     log_type = fields.Selection(selection_add=[("no_log", "No Log (Sync)")])
     model_name = fields.Char("Model Name")
-    uuid = fields.Char("UUID",
-                        default=lambda self: uuid.uuid4())
-    timestamp = fields.Char("Timestamp",
-                                default=lambda self: fields.Datetime.now())
+    uuid = fields.Char("UUID", default=lambda self: uuid.uuid4())
+    timestamp = fields.Char("Timestamp", default=lambda self: fields.Datetime.now())
     resource_ids = fields.Char("Resource IDs")
     raw_args_kwargs = fields.Char("Raw Args and kwargs")
     prepared_args_kwargs = fields.Char("Prepared Args and kwargs")
@@ -102,8 +93,10 @@ class AuditlogLog(models.Model):
             if not v:
                 continue
             res_model = ir_model_obj.search([("model", "=", relational_model)], limit=1)
-            field = res_model.field_id.filtered(lambda l: l.name == k and
-                                                l.ttype in ('many2one', 'one2many', 'many2many'))
+            field = res_model.field_id.filtered(
+                lambda l: l.name == k
+                and l.ttype in ("many2one", "one2many", "many2many")
+            )
             if not field:
                 continue
             if field.ttype == "many2one":
@@ -151,7 +144,7 @@ class AuditlogLog(models.Model):
                     "state": "Prepared",
                 }
             )
-            log._cr.commit()
+            # TODO ??? log._cr.commit()
 
     def _push_event_data(self, addr, uid, password, dbname):
 
@@ -173,7 +166,7 @@ class AuditlogLog(models.Model):
             "remote": self.remote,
         }
         try:
-            log_id = xmlrpclib.ServerProxy("%s/xmlrpc/object" % (addr)).execute(
+            xmlrpclib.ServerProxy("%s/xmlrpc/object" % (addr)).execute(
                 dbname, uid, password, "auditlog.log", "create", log_dict
             )
             self.state = "Pushed"
@@ -190,10 +183,9 @@ class AuditlogLog(models.Model):
                 password,
                 "auditlog.log",
                 "search_read",
-                [("state", "in", ["Prepared", "Processed"]),
-                 ("user_id", "!=", uid)],
+                [("state", "in", ["Prepared", "Processed"]), ("user_id", "!=", uid)],
             )
-        except Exception as e:
+        except Exception:
             raise ValidationError(
                 _("Could not retrieve events to Pull from remote server")
             )
@@ -222,10 +214,10 @@ class AuditlogLog(models.Model):
                     "remote": event["remote"],
                 }
                 try:
-                    log_id = self.create(log_dict)
+                    self.create(log_dict)
                     # commit the record before moving to next one
-                    self.env.cr.commit()
-                except Exception as e:
+                    # self.env.cr.commit()
+                except Exception:
                     continue
         return
 
@@ -238,16 +230,14 @@ class AuditlogLog(models.Model):
             password = server.password
             dbname = server.dbname
             try:
-                common = xmlrpclib.ServerProxy("%s/xmlrpc/common" % (addr))
-            except Exception as e:
-                raise ValidationError(
-                    _("Could not connect to the remote server")
-                )
+                xmlrpclib.ServerProxy("%s/xmlrpc/common" % (addr))
+            except Exception:
+                raise ValidationError(_("Could not connect to the remote server"))
             try:
                 uid = xmlrpclib.ServerProxy("%s/xmlrpc/common" % (addr)).authenticate(
                     dbname, userid, password, {}
                 )
-            except Exception as e:
+            except Exception:
                 raise ValidationError(
                     _("Could not authenticate user on the remote server")
                 )
@@ -257,7 +247,8 @@ class AuditlogLog(models.Model):
                 for event in events:
                     event._push_event_data(addr, uid, password, dbname)
 
-                # Pull event data from remote server that is in Prepared or Processed state
+                # Pull event data from remote server
+                # that is in Prepared or Processed state
                 self._pull_event_data(self, addr, uid, password, dbname)
         return
 
@@ -272,50 +263,37 @@ class AuditlogLog(models.Model):
             uid = xmlrpclib.ServerProxy("%s/xmlrpc/common" % (addr)).authenticate(
                 dbname, userid, password, {}
             )
-        except Exception as e:
-            raise ValidationError(
-                _("Could not authenticate user on the remote server")
-            )
+        except Exception:
+            raise ValidationError(_("Could not authenticate user on the remote server"))
 
-        comodel = self.env['ir.model'].search([('model', '=', model_name)], limit=1)
-        model_fields = self.env[comodel.model]._fields
+        comodel = self.env["ir.model"].search([("model", "=", model_name)], limit=1)
         export_fields_names = []
         for ir_field in comodel.field_id:  # .filtered(lambda l: l.name not in ('id')):
-            if ir_field.ttype in ('many2one', 'many2many', 'one2many'):
-                field_name = '/'.join((ir_field.name, 'id'))
+            if ir_field.ttype in ("many2one", "many2many", "one2many"):
+                field_name = "/".join((ir_field.name, "id"))
                 export_fields_names.append(field_name)
                 continue
             export_fields_names.append(ir_field.name)
         master_datas_list = []
         master_datas = False
         try:
-            master_datas_list = xmlrpclib.ServerProxy("%s/xmlrpc/object" % (addr)).execute(
-                dbname,
-                uid,
-                password,
-                model_name,
-                'search',
-                [],
-            )
-        except Exception as e:
-            raise ValidationError(
-                _("Could not retrieve master from remote server")
-            )
+            master_datas_list = xmlrpclib.ServerProxy(
+                "%s/xmlrpc/object" % (addr)
+            ).execute(dbname, uid, password, model_name, "search", [],)
+        except Exception:
+            raise ValidationError(_("Could not retrieve master from remote server"))
         try:
             master_datas = xmlrpclib.ServerProxy("%s/xmlrpc/object" % (addr)).execute(
                 dbname,
                 uid,
                 password,
                 model_name,
-                'export_data',
+                "export_data",
                 master_datas_list,
                 export_fields_names,
-
             )
-        except Exception as e:
-            raise ValidationError(
-                _("Could not export master from remote server")
-            )
+        except Exception:
+            raise ValidationError(_("Could not export master from remote server"))
         return export_fields_names, master_datas
 
     def _cron_initialize_master_data(self):
@@ -323,9 +301,9 @@ class AuditlogLog(models.Model):
         Audit Rule of type master data
         """
 
-        log_rules = self.env['auditlog.rule'].search([('sync_type', '=', 'master'),
-                                                      ('state', '=', 'subscribed')])
-        auditlog_obj = self.env['auditlog.log']
+        log_rules = self.env["auditlog.rule"].search(
+            [("sync_type", "=", "master"), ("state", "=", "subscribed")]
+        )
         server = self.env["auditlog.remote.server"].search([], limit=1)
         if log_rules and server:
             addr = server.url
@@ -333,25 +311,25 @@ class AuditlogLog(models.Model):
             password = server.password
             dbname = server.dbname
             try:
-                common = xmlrpclib.ServerProxy("%s/xmlrpc/common" % (addr))
-            except Exception as e:
-                raise ValidationError(
-                    _("Could not connect to the remote server")
-                )
+                xmlrpclib.ServerProxy("%s/xmlrpc/common" % (addr))
+            except Exception:
+                raise ValidationError(_("Could not connect to the remote server"))
             try:
                 uid = xmlrpclib.ServerProxy("%s/xmlrpc/common" % (addr)).authenticate(
                     dbname, userid, password, {}
                 )
-            except Exception as e:
+            except Exception:
                 raise ValidationError(
                     _("Could not authenticate user on the remote server")
                 )
             if uid:
                 for log_rule in log_rules:
                     model_name = log_rule.model_id.model
-                    mapping_fields_names, master_datas = self._fetch_master_data(model_name)
+                    mapping_fields_names, master_datas = self._fetch_master_data(
+                        model_name
+                    )
                     master_data_list = []
-                    for data in master_datas.get('datas'):
+                    for data in master_datas.get("datas"):
                         for i in range(len(data)):
                             if isinstance(data[i], bool):
                                 data[i] = str(data[i])
@@ -401,21 +379,23 @@ class AuditlogLog(models.Model):
         for key, val in args_kwargs.items():
             if not val:
                 continue
-            field = res_model.field_id.filtered(lambda l: l.name == key and
-                                                l.ttype in ('many2one', 'one2many', 'many2many'))
+            field = res_model.field_id.filtered(
+                lambda l: l.name == key
+                and l.ttype in ("many2one", "one2many", "many2many")
+            )
             if not field:
                 continue
-            if field.ttype == 'many2one':
-                args_kwargs.update({key: eval(val).id})
-            elif field.ttype == 'one2many':
+            if field.ttype == "many2one":
+                args_kwargs.update({key: ast.literal_eval(val).id})
+            elif field.ttype == "one2many":
                 for line in val:
                     self._prepare_args_kwargs_to_apply(self, line[2], field.relation)
-            elif field.ttype == 'many2many':
+            elif field.ttype == "many2many":
                 m2m_list = []
                 for lines in val:
                     m2m_ids = []
                     for line in lines[2]:
-                        m2m_ids.append(eval(line).id)
+                        m2m_ids.append(ast.literal_eval(line).id)
                     m2m_list.append((6, 0, m2m_ids))
                 args_kwargs.update({key: m2m_list})
         return args_kwargs
@@ -424,15 +404,15 @@ class AuditlogLog(models.Model):
         events = self.search([("state", "=", "Pulled")], order="timestamp")
         for event in events:
             pulled_args_kwargs = ast.literal_eval(event.prepared_args_kwargs)
-            args_kwargs = self._prepare_args_kwargs_to_apply(event,
-                                                             pulled_args_kwargs,
-                                                             event.model_id.model)
+            args_kwargs = self._prepare_args_kwargs_to_apply(
+                event, pulled_args_kwargs, event.model_id.model
+            )
             event_user = event.user_id.active and event.user_id or SUPERUSER_ID
             ext_id = False
             try:
                 event_object = self.env.ref(event.external_id)
                 ext_id = True
-            except Exception as e:
+            except Exception:
                 ext_id = False
             if ext_id:
                 method = getattr(event_object.with_user(event_user), event.method)
@@ -447,7 +427,11 @@ class AuditlogLog(models.Model):
                         event.state = "Error"
             elif event.method == "create":
                 try:
-                    object_id = self.env[event.model_name].with_user(event_user).create(args_kwargs)
+                    object_id = (
+                        self.env[event.model_name]
+                        .with_user(event_user)
+                        .create(args_kwargs)
+                    )
                     event.state = "Processed"
                     ext_id = event.external_id
                     modname, rec_name = ext_id.split(".", 1)
@@ -474,15 +458,15 @@ class AuditlogLog(models.Model):
                 continue
 
             pulled_args_kwargs = ast.literal_eval(event.prepared_args_kwargs)
-            args_kwargs = self._prepare_args_kwargs_to_apply(event,
-                                                             pulled_args_kwargs,
-                                                             event.model_id.model)
+            args_kwargs = self._prepare_args_kwargs_to_apply(
+                event, pulled_args_kwargs, event.model_id.model
+            )
             event_user = event.user_id.active and event.user_id or SUPERUSER_ID
             ext_id = False
             try:
                 event_object = self.env.ref(event.external_id)
                 ext_id = True
-            except Exception as e:
+            except Exception:
                 ext_id = False
             if ext_id:
                 method = getattr(event_object.with_user(event_user), event.method)
@@ -494,7 +478,11 @@ class AuditlogLog(models.Model):
                     event.state = "Failed"
             elif event.method == "create":
                 try:
-                    object_id = self.env[event.model_name].with_user(event_user).create(args_kwargs)
+                    object_id = (
+                        self.env[event.model_name]
+                        .with_user(event_user)
+                        .create(args_kwargs)
+                    )
                     event.state = "Processed"
                     ext_id = event.external_id
                     modname, rec_name = ext_id.split(".", 1)

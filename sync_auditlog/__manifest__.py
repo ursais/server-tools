@@ -3,8 +3,8 @@
 
 {
     "name": "Sync Audit Log",
-    "version": "14.0.1.0.0",
-    "author": "Open Source Integrators, ABF OSIELL,Odoo Community Association (OCA)",
+    "version": "13.0.1.0.0",
+    "author": "Open Source Integrators, Odoo Community Association (OCA)",
     "license": "AGPL-3",
     "website": "https://github.com/OCA/server-tools",
     "category": "Tools",

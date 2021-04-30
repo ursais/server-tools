@@ -1,23 +1,22 @@
 # Copyright (C) 2021 Open Source Integrators
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-from odoo import _, api, fields, models, modules
-import uuid, copy
-
+import copy
+import uuid
 from datetime import datetime
+
+from odoo import api, fields, models
+
 from odoo.addons.auditlog.models.rule import FIELDS_BLACKLIST
 
 
 class AuditlogRule(models.Model):
     _inherit = "auditlog.rule"
 
-    log_type = fields.Selection(
-        selection_add=[("no_log", "No Log (Sync)")], ondelete={"no_log": "set default"}
-    )
+    log_type = fields.Selection(selection_add=[("no_log", "No Log (Sync)")])
 
     sync_type = fields.Selection(
-        [("transaction", "Transaction"), ("master", "Master Data")],
-        string="Sync Type",
+        [("transaction", "Transaction"), ("master", "Master Data")], string="Sync Type",
     )
     domain_filter = fields.Integer("Domain Filter")
     black_list_fields = fields.Many2many(
@@ -45,12 +44,12 @@ class AuditlogRule(models.Model):
         """Patch ORM methods of models defined in rules to log their calls."""
         res = super(AuditlogRule, self)._patch_methods()
         for rule in self:
+            model_model = self.env[rule.model_id.model]
             for method in rule.method_call_ids:
                 check_attr = "auditlog_ruled_" + method.name
                 if not hasattr(model_model, check_attr):
                     model_model._patch_method(method.name, rule._make_call(method.name))
                     setattr(type(model_model), check_attr, True)
-                    updated = True
         return res
 
     def _make_call(self, method):
@@ -67,22 +66,16 @@ class AuditlogRule(models.Model):
                 skip_sync = True
             else:
                 self.env.context = dict(self.env.context)
-                self.env.context.update({
-                    'auditlog_is_capturing': True,
-                })
+                self.env.context.update({"auditlog_is_capturing": True})
             rule_model = self.env["auditlog.rule"]
             if log_type != "no_log":
                 additional_log_values = {
-                "log_type": log_type,
-                "uuid": uuid.uuid4(),
-                "timestamp": datetime.now(),
+                    "log_type": log_type,
+                    "uuid": uuid.uuid4(),
+                    "timestamp": datetime.now(),
                 }
                 rule_model.sudo().create_extra_logs(
-                    self.env.uid,
-                    self._name,
-                    self.ids,
-                    method,
-                    additional_log_values,
+                    self.env.uid, self._name, self.ids, method, additional_log_values,
                 )
             if not skip_sync:
                 additional_log_values = {
@@ -95,23 +88,14 @@ class AuditlogRule(models.Model):
                     "state": "captured",
                 }
                 rule_model.sudo().create_extra_logs(
-                    self.env.uid,
-                    self._name,
-                    self.ids,
-                    method,
-                    additional_log_values,
+                    self.env.uid, self._name, self.ids, method, additional_log_values,
                 )
             return result
 
         return create_record
 
     def create_extra_logs(
-        self,
-        uid,
-        res_model,
-        res_ids,
-        method,
-        additional_log_values=None,
+        self, uid, res_model, res_ids, method, additional_log_values=None,
     ):
         """Create logs. `old_values` and `new_values` are dictionaries, e.g:
         {RES_ID: {'FIELD': VALUE, ...}}
@@ -133,7 +117,7 @@ class AuditlogRule(models.Model):
                 "http_session_id": http_session_model.current_http_session(),
             }
             vals.update(additional_log_values or {})
-            log = log_model.create(vals)
+            log_model.create(vals)
 
     def _make_create(self):
         """Instanciate a create method that log its calls."""
@@ -181,14 +165,10 @@ class AuditlogRule(models.Model):
             )
             context = dict(self._context)
             if self.env.context.get("auditlog_is_capturing"):
-                context.update({
-                    "sync_ext_id": True,
-                })
+                context.update({"sync_ext_id": True})
             else:
                 self.env.context = dict(self.env.context)
-                self.env.context.update({
-                    'auditlog_is_capturing': True,
-                })
+                self.env.context.update({"auditlog_is_capturing": True})
             additional_log_values = {
                 "log_type": "no_log",
                 "uuid": uuid.uuid4(),
@@ -223,14 +203,10 @@ class AuditlogRule(models.Model):
                 new_values.setdefault(new_record.id, vals)
             context = dict(self._context)
             if self.env.context.get("auditlog_is_capturing"):
-                context.update({
-                    "sync_ext_id": True,
-                })
-            else:    
+                context.update({"sync_ext_id": True})
+            else:
                 self.env.context = dict(self.env.context)
-                self.env.context.update({
-                    'auditlog_is_capturing': True,
-                })
+                self.env.context.update({"auditlog_is_capturing": True})
             if log_type == "fast":
                 additional_log_values = {
                     "log_type": log_type,
@@ -239,7 +215,8 @@ class AuditlogRule(models.Model):
                 }
 
                 rule_model.sudo().with_context(
-                    black_list_fields=black_list_fields, white_list_fields=white_list_fields
+                    black_list_fields=black_list_fields,
+                    white_list_fields=white_list_fields,
                 ).create_logs(
                     self.env.uid,
                     self._name,
@@ -304,9 +281,7 @@ class AuditlogRule(models.Model):
                 skip_sync = True
             else:
                 self.env.context = dict(self.env.context)
-                self.env.context.update({
-                    'auditlog_is_capturing': True,
-                })
+                self.env.context.update({"auditlog_is_capturing": True})
             additional_log_values = {
                 "log_type": log_type,
                 "uuid": uuid.uuid4(),
@@ -335,7 +310,8 @@ class AuditlogRule(models.Model):
                     "state": "captured",
                 }
                 rule_model.sudo().with_context(
-                    black_list_fields=black_list_fields, white_list_fields=white_list_fields
+                    black_list_fields=black_list_fields,
+                    white_list_fields=white_list_fields,
                 ).create_logs(
                     self.env.uid,
                     self._name,
@@ -362,11 +338,9 @@ class AuditlogRule(models.Model):
             context = dict(self._context)
             if self.env.context.get("auditlog_is_capturing"):
                 skip_sync = True
-            else:    
+            else:
                 self.env.context = dict(self.env.context)
-                self.env.context.update({
-                    'auditlog_is_capturing': True,
-                })
+                self.env.context.update({"auditlog_is_capturing": True})
             if log_type == "fast":
                 additional_log_values = {
                     "log_type": log_type,
@@ -375,7 +349,8 @@ class AuditlogRule(models.Model):
                 }
 
                 rule_model.sudo().with_context(
-                    black_list_fields=black_list_fields, white_list_fields=white_list_fields
+                    black_list_fields=black_list_fields,
+                    white_list_fields=white_list_fields,
                 ).create_logs(
                     self.env.uid,
                     self._name,
@@ -397,7 +372,8 @@ class AuditlogRule(models.Model):
                 }
 
                 rule_model.sudo().with_context(
-                    black_list_fields=black_list_fields, white_list_fields=white_list_fields
+                    black_list_fields=black_list_fields,
+                    white_list_fields=white_list_fields,
                 ).create_logs(
                     self.env.uid,
                     self._name,

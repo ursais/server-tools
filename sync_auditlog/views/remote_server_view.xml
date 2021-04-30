@@ -7,11 +7,11 @@
             <form>
                 <sheet>
                     <group>
-                        <field name="name"/>
+                        <field name="name" />
                         <field name="url" />
                         <field name="dbname" />
                         <field name="user" />
-                        <field name="password" password="True"/>
+                        <field name="password" password="True" />
                     </group>
                 </sheet>
             </form>
@@ -27,7 +27,7 @@
                 <field name="url" />
                 <field name="dbname" />
                 <field name="user" />
-                <field name="password" password="True"/>
+                <field name="password" password="True" />
             </tree>
         </field>
     </record>
@@ -43,5 +43,4 @@
         parent="auditlog.menu_audit"
         action="action_auditlog_remote_server_tree"
     />
-
 </odoo>
