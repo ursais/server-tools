@@ -8,10 +8,18 @@
         <field name="arch" type="xml">
             <field name="action_id" position="after">
                 <field name="sync_type" />
-                <field name="domain_filter" />
+                <field name="domain_filter" widget="domain" />
             </field>
             <xpath expr="//sheet" position="inside">
                 <notebook attrs="{'invisible' : [('sync_type','==', False)]}">
+                    <page string="Log Method Calls" name="method_call_ids">
+                        <field name="method_call_ids">
+                            <tree editable="bottom">
+                                <field name="name" />
+                                <field name="arguments" />
+                            </tree>
+                        </field>
+                    </page>
                     <page string="Column black list" name="black_list_fields">
                         <field name="black_list_fields">
                             <tree editable="bottom">
@@ -29,14 +37,6 @@
                                 <field name="field_description" />
                                 <field name="ttype" />
                                 <field name="relation" />
-                            </tree>
-                        </field>
-                    </page>
-                    <page string="Log Method Calls" name="method_call_ids">
-                        <field name="method_call_ids">
-                            <tree editable="bottom">
-                                <field name="name" />
-                                <field name="arguments" />
                             </tree>
                         </field>
                     </page>

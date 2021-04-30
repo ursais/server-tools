@@ -2,12 +2,15 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 import copy
+import logging
 import uuid
 from datetime import datetime
 
 from odoo import api, fields, models
 
-from odoo.addons.auditlog.models.rule import FIELDS_BLACKLIST
+# from odoo.addons.auditlog.models.rule import FIELDS_BLACKLIST
+
+_logger = logging.getLogger(__name__)
 
 
 class AuditlogRule(models.Model):
@@ -16,9 +19,9 @@ class AuditlogRule(models.Model):
     log_type = fields.Selection(selection_add=[("no_log", "No Log (Sync)")])
 
     sync_type = fields.Selection(
-        [("transaction", "Transaction"), ("master", "Master Data")], string="Sync Type",
+        [("transaction", "Transaction"), ("master", "Master Data")],
     )
-    domain_filter = fields.Integer("Domain Filter")
+    domain_filter = fields.Char()
     black_list_fields = fields.Many2many(
         "ir.model.fields",
         "auditlog_blacklist_fields_rel",
@@ -43,22 +46,30 @@ class AuditlogRule(models.Model):
     def _patch_methods(self):
         """Patch ORM methods of models defined in rules to log their calls."""
         res = super(AuditlogRule, self)._patch_methods()
-        for rule in self:
-            model_model = self.env[rule.model_id.model]
-            for method in rule.method_call_ids:
-                check_attr = "auditlog_ruled_" + method.name
-                if not hasattr(model_model, check_attr):
-                    model_model._patch_method(method.name, rule._make_call(method.name))
-                    setattr(type(model_model), check_attr, True)
+        for rule in self.filtered("sync_type"):
+            model = self.env[rule.model_id.model]
+            methods = rule.method_call_ids.mapped("name")
+            if rule.log_create:
+                methods.append("create")
+            if rule.log_write:
+                methods.append("write")
+            if rule.log_unlink:
+                methods.append("unlink")
+            for method in methods:
+                check_attr = "sync_auditlog_ruled_" + method
+                if not hasattr(model, check_attr) and hasattr(model, method):
+                    model._patch_method(method, rule._make_sync(method))
+                    setattr(type(model), check_attr, True)
+                    _logger.debug("Watching %s.%s", model, method)
         return res
 
-    def _make_call(self, method):
-        """Instanciate a create method that log its calls."""
+    def _make_sync(self, method):
+        """Log a sync record for a watched method."""
         self.ensure_one()
         log_type = self.log_type
 
-        def create_record(self, *args, **kwargs):
-            result = create_record.origin(self, *args, **kwargs)
+        def synced_call(self, *args, **kwargs):
+            result = synced_call.origin(self, *args, **kwargs)
             self = self.with_context(auditlog_disabled=True)
             skip_sync = False
             context = dict(self._context)
@@ -92,7 +103,7 @@ class AuditlogRule(models.Model):
                 )
             return result
 
-        return create_record
+        return synced_call
 
     def create_extra_logs(
         self, uid, res_model, res_ids, method, additional_log_values=None,
@@ -258,71 +269,6 @@ class AuditlogRule(models.Model):
         black_list_fields = [field.name for field in self.black_list_fields]
         white_list_fields = [field.name for field in self.white_list_fields]
 
-        def write_full(self, vals, **kwargs):
-            self = self.with_context(auditlog_disabled=True)
-            rule_model = self.env["auditlog.rule"]
-            fields_list = rule_model.get_auditlog_fields(self)
-            old_values = {
-                d["id"]: d
-                for d in self.sudo()
-                .with_context(prefetch_fields=False)
-                .read(fields_list)
-            }
-            result = write_full.origin(self, vals, **kwargs)
-            new_values = {
-                d["id"]: d
-                for d in self.sudo()
-                .with_context(prefetch_fields=False)
-                .read(fields_list)
-            }
-            skip_sync = False
-            context = dict(self._context)
-            if self.env.context.get("auditlog_is_capturing"):
-                skip_sync = True
-            else:
-                self.env.context = dict(self.env.context)
-                self.env.context.update({"auditlog_is_capturing": True})
-            additional_log_values = {
-                "log_type": log_type,
-                "uuid": uuid.uuid4(),
-                "timestamp": datetime.now(),
-            }
-
-            rule_model.sudo().with_context(
-                black_list_fields=black_list_fields, white_list_fields=white_list_fields
-            ).create_logs(
-                self.env.uid,
-                self._name,
-                self.ids,
-                "write",
-                old_values,
-                new_values,
-                additional_log_values,
-            )
-            if not skip_sync:
-                additional_log_values = {
-                    "log_type": "no_log",
-                    "uuid": uuid.uuid4(),
-                    "timestamp": datetime.now(),
-                    "resource_ids": self.ids,
-                    "raw_args_kwargs": vals,
-                    "context": context,
-                    "state": "captured",
-                }
-                rule_model.sudo().with_context(
-                    black_list_fields=black_list_fields,
-                    white_list_fields=white_list_fields,
-                ).create_logs(
-                    self.env.uid,
-                    self._name,
-                    self.ids,
-                    "write",
-                    None,
-                    None,
-                    additional_log_values,
-                )
-            return result
-
         def write_fast(self, vals, **kwargs):
             self = self.with_context(auditlog_disabled=True)
             rule_model = self.env["auditlog.rule"]
@@ -385,71 +331,7 @@ class AuditlogRule(models.Model):
                 )
             return result
 
-        return write_full if self.log_type == "full" else write_fast
-
-    def _create_log_line_on_create(self, log, fields_list, new_values):
-        """Log field filled on a 'create' operation."""
-        log_line_model = self.env["auditlog.log.line"]
-        black_list_fields = self._context.get("black_list_fields", False)
-        white_list_fields = self._context.get("white_list_fields", False)
-
-        for w_field in white_list_fields:
-            if w_field in black_list_fields:
-                black_list_fields.remove(w_field)
-        for field_name in fields_list:
-            if field_name in FIELDS_BLACKLIST:
-                continue
-            if black_list_fields and field_name in black_list_fields:
-                continue
-            field = self._get_field(log.model_id, field_name)
-            # not all fields have an ir.models.field entry (ie. related fields)
-            if field:
-                log_vals = self._prepare_log_line_vals_on_create(log, field, new_values)
-                log_line_model.create(log_vals)
-
-    def _create_log_line_on_write(self, log, fields_list, old_values, new_values):
-        """Log field updated on a 'write' operation."""
-        log_line_model = self.env["auditlog.log.line"]
-        black_list_fields = self._context.get("black_list_fields", False)
-        white_list_fields = self._context.get("white_list_fields", False)
-
-        for w_field in white_list_fields:
-            if w_field in black_list_fields:
-                black_list_fields.remove(w_field)
-
-        for field_name in fields_list:
-            if field_name in FIELDS_BLACKLIST:
-                continue
-            if black_list_fields and field_name in black_list_fields:
-                continue
-            field = self._get_field(log.model_id, field_name)
-            # not all fields have an ir.models.field entry (ie. related fields)
-            if field:
-                log_vals = self._prepare_log_line_vals_on_write(
-                    log, field, old_values, new_values
-                )
-                log_line_model.create(log_vals)
-
-    def _create_log_line_on_read(self, log, fields_list, read_values):
-        """Log field filled on a 'read' operation."""
-        log_line_model = self.env["auditlog.log.line"]
-        black_list_fields = self._context.get("black_list_fields", False)
-        white_list_fields = self._context.get("white_list_fields", False)
-
-        for w_field in white_list_fields:
-            if w_field in black_list_fields:
-                black_list_fields.remove(w_field)
-
-        for field_name in fields_list:
-            if field_name in FIELDS_BLACKLIST:
-                continue
-            if black_list_fields and field_name in black_list_fields:
-                continue
-            field = self._get_field(log.model_id, field_name)
-            # not all fields have an ir.models.field entry (ie. related fields)
-            if field:
-                log_vals = self._prepare_log_line_vals_on_read(log, field, read_values)
-                log_line_model.create(log_vals)
+        return write_fast
 
 
 class AuditlogRuleMethodCalls(models.Model):
