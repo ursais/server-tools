@@ -66,7 +66,7 @@ class AuditlogLog(models.Model):
     prepared_args_kwargs = fields.Char("Prepared Args and kwargs")
     context = fields.Char("Context")
     external_id = fields.Char("External ID")
-    parent_log = fields.Char("Parent log")
+    parent_uuid = fields.Char("Parent UUID")
     result = fields.Text("Result")
     remote = fields.Char("Remote")
     _sql_constraints = [
@@ -134,6 +134,16 @@ class AuditlogLog(models.Model):
                 continue
             rec = self.env[log.model_id.model].browse(log.res_id)
             # define the global method
+            if log.external_id:
+                ext_id = log.external_id
+                modname, rec_name = ext_id.split(".", 1)
+                ext_id_vals = {
+                    "module": modname,
+                    "model": log.model_name,
+                    "name": rec_name,
+                    "res_id": log.res_id,
+                }
+                self.env["ir.model.data"].create(ext_id_vals)
             res = _get_external_id(rec)
             xml_id = res[rec.id] and res[rec.id][0] or False
             args = log._prepare_args_kwargs(log.raw_args_kwargs, log.model_id.model)
@@ -162,7 +172,7 @@ class AuditlogLog(models.Model):
             "prepared_args_kwargs": self.prepared_args_kwargs,
             "context": self.context,
             "external_id": self.external_id,
-            "parent_log": self.parent_log,
+            "parent_uuid": self.parent_uuid,
             "remote": self.remote,
         }
         try:
@@ -210,7 +220,7 @@ class AuditlogLog(models.Model):
                     "prepared_args_kwargs": event["prepared_args_kwargs"],
                     "context": event["context"],
                     "external_id": event["external_id"],
-                    "parent_log": event["parent_log"],
+                    "parent_uuid": event["parent_uuid"],
                     "remote": event["remote"],
                 }
                 try:
@@ -386,7 +396,7 @@ class AuditlogLog(models.Model):
             if not field:
                 continue
             if field.ttype == "many2one":
-                args_kwargs.update({key: ast.literal_eval(val).id})
+                args_kwargs.update({key: eval(val).id})
             elif field.ttype == "one2many":
                 for line in val:
                     self._prepare_args_kwargs_to_apply(self, line[2], field.relation)
@@ -395,14 +405,20 @@ class AuditlogLog(models.Model):
                 for lines in val:
                     m2m_ids = []
                     for line in lines[2]:
-                        m2m_ids.append(ast.literal_eval(line).id)
+                        m2m_ids.append(eval(line).id)
                     m2m_list.append((6, 0, m2m_ids))
                 args_kwargs.update({key: m2m_list})
         return args_kwargs
 
     def _cron_apply_event_data(self):
-        events = self.search([("state", "=", "Pulled")], order="timestamp")
+        events = self.search(
+            [("state", "=", "Pulled"),
+            ("parent_uuid", "=", False)],
+            order="timestamp"
+        )
         for event in events:
+            if not event.parent_uuid:
+                self = self.with_context(sync_apply_parent=event.uuid)
             pulled_args_kwargs = ast.literal_eval(event.prepared_args_kwargs)
             args_kwargs = self._prepare_args_kwargs_to_apply(
                 event, pulled_args_kwargs, event.model_id.model
@@ -442,13 +458,13 @@ class AuditlogLog(models.Model):
                         "res_id": object_id,
                     }
                     self.env["ir.model.data"].create(ext_id_vals)
+                    self.env.cr.commit()
                 except Exception as e:
                     event.result = str(e)
                     if event.state == "Error":
                         event.state = "Failed"
                     else:
                         event.state = "Error"
-            self.env.cr.commit()
         return
 
     def reprocess_error_events(self):

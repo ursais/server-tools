@@ -99,7 +99,7 @@
                             <field name="prepared_args_kwargs" />
                             <field name="context" />
                             <field name="external_id" />
-                            <field name="parent_log" />
+                            <field name="parent_uuid" />
                             <field name="result" />
                             <field name="remote" />
                         </group>

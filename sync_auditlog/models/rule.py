@@ -82,14 +82,15 @@ class AuditlogRule(models.Model):
         def logged_create_call(self, vals_list, **kwargs):
             if sync_type:
                 doing_sync = self.env.context.get("sync_auditlog_working")
-                if not doing_sync:
-                    self = self.with_context(sync_auditlog_working=True)
+                update_ext_id = self.env.context.get("sync_apply_parent")
+                uuid_num = uuid.uuid4()
                 additional_log_values = {
                     "log_type": "no_log",
-                    "uuid": uuid.uuid4(),
+                    "uuid": uuid_num,
                     "timestamp": datetime.now(),
                     "resource_ids": self.ids,
                     "state": "captured",
+                    "parent_uuid": doing_sync
                 }
                 if not doing_sync:
                     # Top create call stores a regular sync record
@@ -99,6 +100,28 @@ class AuditlogRule(models.Model):
                             "context": self.env.context,
                         }
                     )
+                    self = self.with_context(sync_auditlog_working=uuid_num)
+                elif update_ext_id:
+                    
+                    child_logs = self.env["auditlog.log"].search([
+                        ("parent_uuid", "=", update_ext_id),
+                        ("state", "in", ("Pulled", "Processed")),
+                    ])
+                    if child_logs:
+                        child_count = self.env.context.get("sync_child_count")
+                        if child_count:
+                            child_count += 1
+                        else:
+                            child_count = 1
+                        self = self.with_context(sync_child_count=child_count)
+                        if not child_count:
+                            child_count = 0
+                        additional_log_values.update(
+                            {
+                                "external_id": child_logs[child_count].external_id,
+                            }
+                        )
+                       
                 new_records = logged_create_call.origin(self, vals_list, **kwargs)
                 # Note that the Log is created after the call is done
                 # (and depending calls are processed)
