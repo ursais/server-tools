@@ -90,7 +90,7 @@ class AuditlogRule(models.Model):
                     "timestamp": datetime.now(),
                     "resource_ids": self.ids,
                     "state": "captured",
-                    "parent_uuid": doing_sync
+                    "parent_uuid": doing_sync,
                 }
                 if not doing_sync:
                     # Top create call stores a regular sync record
@@ -102,11 +102,13 @@ class AuditlogRule(models.Model):
                     )
                     self = self.with_context(sync_auditlog_working=uuid_num)
                 elif update_ext_id:
-                    
-                    child_logs = self.env["auditlog.log"].search([
-                        ("parent_uuid", "=", update_ext_id),
-                        ("state", "in", ("Pulled", "Processed")),
-                    ])
+
+                    child_logs = self.env["auditlog.log"].search(
+                        [
+                            ("parent_uuid", "=", update_ext_id),
+                            ("state", "in", ("Pulled", "Processed")),
+                        ]
+                    )
                     if child_logs:
                         child_count = self.env.context.get("sync_child_count")
                         if child_count:
@@ -115,11 +117,9 @@ class AuditlogRule(models.Model):
                             child_count = 1
                         self = self.with_context(sync_child_count=child_count)
                         additional_log_values.update(
-                            {
-                                "external_id": child_logs[child_count-1].external_id,
-                            }
+                            {"external_id": child_logs[child_count - 1].external_id}
                         )
-                       
+
                 new_records = logged_create_call.origin(self, vals_list, **kwargs)
                 # Note that the Log is created after the call is done
                 # (and depending calls are processed)
@@ -155,7 +155,6 @@ class AuditlogRule(models.Model):
                     "context": self.env.context,
                     "state": "captured",
                 }
-                result = logged_method_call.origin(self, *args, **kwargs)
                 self.env["auditlog.rule"].sudo().create_logs(
                     self.env.uid,
                     self._name,
@@ -163,6 +162,7 @@ class AuditlogRule(models.Model):
                     method,
                     additional_log_values=additional_log_values,
                 )
+                result = logged_method_call.origin(self, *args, **kwargs)
                 return result
 
         return logged_method_call

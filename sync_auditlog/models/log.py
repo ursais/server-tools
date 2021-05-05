@@ -1,10 +1,14 @@
 # Copyright (C) 2021 Open Source Integrators
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 import ast
+import logging
 import uuid
 
 from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import ValidationError
+
+_logger = logging.getLogger(__name__)
+
 
 try:
     from xmlrpc import client as xmlrpclib
@@ -12,6 +16,7 @@ except ImportError:
     import xmlrpclib
 
 
+# TODO: implement these methods in ir.model.data object
 def _get_external_id(record):
     # code reference from from odoo BaseModel.__ensure_xml_id()
     # for generating the external_id
@@ -39,11 +44,30 @@ def _get_external_id(record):
     return record._get_external_ids()
 
 
+def _set_external_id(model_name, record, xmlid):
+    """
+    Create an External ID.
+    If it already exists, update to ensure it is pointing to this record.
+    """
+    ModelData = record.env["ir.model.data"]
+    res_id = ModelData.xmlid_to_res_id(xmlid)
+    if not res_id:
+        module, name = xmlid.split(".", 1)
+        ModelData.create(
+            {"model": model_name, "res_id": record, "module": module, "name": name}
+        )
+    elif res_id != record.id:
+        data_id = ModelData.xmlid_lookup(xmlid)[0]
+        data = ModelData.browse(data_id)
+        data.res_id = record.id
+
+
 class AuditlogLog(models.Model):
     _inherit = "auditlog.log"
 
     state = fields.Selection(
         [
+            # FIXME: Either all stages are low caps or Capitalized
             ("logged", "Logged"),
             ("captured", "Captured"),
             ("Prepared", "Prepared"),
@@ -128,6 +152,10 @@ class AuditlogLog(models.Model):
 
     def _cron_prepare_auditlog_events(self):
         logs = self.search([("state", "=", "captured")])
+        logs.prepare_auditlog_events()
+
+    def prepare_auditlog_events(self):
+        logs = self.filtered(lambda x: x.state in ["captured", "Pulled"])
         for log in logs:
             # ToDo - prepared_args_kwargs and external_id
             if not log.model_id and log.res_id:
@@ -143,10 +171,9 @@ class AuditlogLog(models.Model):
                     "name": rec_name,
                     "res_id": log.res_id,
                 }
-                ext_id_exists = self.env["ir.model.data"].search([
-                    ("model", "=", log.model_name),
-                    ("res_id", "=", log.res_id)
-                ])
+                ext_id_exists = self.env["ir.model.data"].search(
+                    [("model", "=", log.model_name), ("res_id", "=", log.res_id)]
+                )
                 if not ext_id_exists:
                     self.env["ir.model.data"].create(ext_id_vals)
             res = _get_external_id(rec)
@@ -159,7 +186,6 @@ class AuditlogLog(models.Model):
                     "state": "Prepared",
                 }
             )
-            # TODO ??? log._cr.commit()
 
     def _push_event_data(self, addr, uid, password, dbname):
 
@@ -294,7 +320,7 @@ class AuditlogLog(models.Model):
         try:
             master_datas_list = xmlrpclib.ServerProxy(
                 "%s/xmlrpc/object" % (addr)
-            ).execute(dbname, uid, password, model_name, "search", [],)
+            ).execute(dbname, uid, password, model_name, "search", [])
         except Exception:
             raise ValidationError(_("Could not retrieve master from remote server"))
         try:
@@ -401,7 +427,7 @@ class AuditlogLog(models.Model):
             if not field:
                 continue
             if field.ttype == "many2one":
-                args_kwargs.update({key: eval(val).id})
+                args_kwargs.update({key: ast.literal_eval(val).id})
             elif field.ttype == "one2many":
                 for line in val:
                     self._prepare_args_kwargs_to_apply(self, line[2], field.relation)
@@ -410,16 +436,21 @@ class AuditlogLog(models.Model):
                 for lines in val:
                     m2m_ids = []
                     for line in lines[2]:
-                        m2m_ids.append(eval(line).id)
+                        m2m_ids.append(ast.literal_eval(line).id)
                     m2m_list.append((6, 0, m2m_ids))
                 args_kwargs.update({key: m2m_list})
         return args_kwargs
 
     def _cron_apply_event_data(self):
         events = self.search(
-            [("state", "=", "Pulled"),
-            ("parent_uuid", "=", False)],
-            order="timestamp"
+            [("state", "=", "Pulled"), ("parent_uuid", "=", False)], order="timestamp"
+        )
+        events.apply_event_data()
+
+    def apply_event_data(self):
+        # TODO: support case where event applies to a list of IDs
+        events = self.filtered_domain(
+            [("state", "=", "Pulled"), ("parent_uuid", "=", False)]
         )
         for event in events:
             if not event.parent_uuid:
@@ -429,14 +460,31 @@ class AuditlogLog(models.Model):
                 event, pulled_args_kwargs, event.model_id.model
             )
             event_user = event.user_id.active and event.user_id or SUPERUSER_ID
-            ext_id = False
+            target_record = None
             try:
-                event_object = self.env.ref(event.external_id)
-                ext_id = True
+                target_record = self.env.ref(event.external_id)
             except Exception:
-                ext_id = False
-            if ext_id:
-                method = getattr(event_object.with_user(event_user), event.method)
+                pass
+            if event.method == "create":
+                if target_record:
+                    _logger.warn("Can't create, %s already exists", event.external_id)
+                    event.state = "Cancelled"
+                else:
+                    try:
+                        new_record = (
+                            self.env[event.model_name]
+                            .with_user(event_user)
+                            .create(args_kwargs)
+                        )
+                        event.state = "Processed"
+                        _set_external_id(
+                            event.model_name, new_record, event.external_id
+                        )
+                    except Exception as e:
+                        event.result = str(e)
+                        event.state = "Failed" if event.state == "Error" else "Error"
+            elif target_record:
+                method = getattr(target_record.with_user(event_user), event.method)
                 try:
                     method(args_kwargs)
                     event.state = "Processed"
@@ -446,75 +494,18 @@ class AuditlogLog(models.Model):
                         event.state = "Failed"
                     else:
                         event.state = "Error"
-            elif event.method == "create":
-                try:
-                    object_id = (
-                        self.env[event.model_name]
-                        .with_user(event_user)
-                        .create(args_kwargs)
-                    )
-                    event.state = "Processed"
-                    ext_id = event.external_id
-                    modname, rec_name = ext_id.split(".", 1)
-                    ext_id_vals = {
-                        "module": modname,
-                        "model": event.model_name,
-                        "name": rec_name,
-                        "res_id": object_id,
-                    }
-                    self.env["ir.model.data"].create(ext_id_vals)
-                    self.env.cr.commit()
-                except Exception as e:
-                    event.result = str(e)
-                    if event.state == "Error":
-                        event.state = "Failed"
-                    else:
-                        event.state = "Error"
+            else:
+                _logger.warn(
+                    "Can't apply %s on %d, record %s does not exist",
+                    event.method,
+                    event.id,
+                    event.external_id,
+                )
+                event.state = "Error"
+                event.result = "Record does not exist"
+            # TODO self.env.cr.commit()
         return
 
     def reprocess_error_events(self):
-
-        for event in self:
-            if event.state not in ["Error", "Failed"]:
-                continue
-
-            pulled_args_kwargs = ast.literal_eval(event.prepared_args_kwargs)
-            args_kwargs = self._prepare_args_kwargs_to_apply(
-                event, pulled_args_kwargs, event.model_id.model
-            )
-            event_user = event.user_id.active and event.user_id or SUPERUSER_ID
-            ext_id = False
-            try:
-                event_object = self.env.ref(event.external_id)
-                ext_id = True
-            except Exception:
-                ext_id = False
-            if ext_id:
-                method = getattr(event_object.with_user(event_user), event.method)
-                try:
-                    method(args_kwargs)
-                    event.state = "Processed"
-                except Exception as e:
-                    event.result = str(e)
-                    event.state = "Failed"
-            elif event.method == "create":
-                try:
-                    object_id = (
-                        self.env[event.model_name]
-                        .with_user(event_user)
-                        .create(args_kwargs)
-                    )
-                    event.state = "Processed"
-                    ext_id = event.external_id
-                    modname, rec_name = ext_id.split(".", 1)
-                    ext_id_vals = {
-                        "module": modname,
-                        "model": event.model_name,
-                        "name": rec_name,
-                        "res_id": object_id,
-                    }
-                    self.env["ir.model.data"].create(ext_id_vals)
-                except Exception as e:
-                    event.result = str(e)
-                    event.state = "Failed"
-        return
+        events = self.filtered(lambda event: event.state == "Error")
+        events.apply_event_data()

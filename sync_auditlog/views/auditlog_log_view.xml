@@ -1,70 +1,47 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <odoo>
-    <!-- auditlog.rule form extended-->
-    <record model="ir.ui.view" id="view_auditlog_rule_form_sync">
-        <field name="name">auditlog.rule.form.sync</field>
-        <field name="model">auditlog.rule</field>
-        <field name="inherit_id" ref="auditlog.view_auditlog_rule_form" />
-        <field name="arch" type="xml">
-            <field name="action_id" position="after">
-                <field name="sync_type" />
-                <field name="domain_filter" widget="domain" />
-            </field>
-            <xpath expr="//sheet" position="inside">
-                <notebook attrs="{'invisible' : [('sync_type','==', False)]}">
-                    <page string="Log Method Calls" name="method_call_ids">
-                        <field name="method_call_ids">
-                            <tree editable="bottom">
-                                <field name="name" />
-                                <field name="arguments" />
-                            </tree>
-                        </field>
-                    </page>
-                    <page string="Column black list" name="black_list_fields">
-                        <field name="black_list_fields">
-                            <tree editable="bottom">
-                                <field name="name" />
-                                <field name="field_description" />
-                                <field name="ttype" />
-                                <field name="relation" />
-                            </tree>
-                        </field>
-                    </page>
-                    <page string="Column white list" name="white_list_fields">
-                        <field name="white_list_fields">
-                            <tree editable="bottom">
-                                <field name="name" />
-                                <field name="field_description" />
-                                <field name="ttype" />
-                                <field name="relation" />
-                            </tree>
-                        </field>
-                    </page>
-                </notebook>
-            </xpath>
-        </field>
-    </record>
-    <!-- auditlog.rule tree extended-->
-    <record model="ir.ui.view" id="view_auditlog_rule_tree_sync">
-        <field name="name">auditlog.rule.tree.sync</field>
-        <field name="model">auditlog.rule</field>
-        <field name="inherit_id" ref="auditlog.view_auditlog_rule_tree" />
-        <field name="arch" type="xml">
-            <field name="name" position="after">
-                <field name="sync_type" />
-            </field>
-        </field>
-    </record>
     <!-- auditlog.log form view extended -->
     <record model="ir.ui.view" id="view_auditlog_log_form">
         <field name="name">auditlog.log.form</field>
         <field name="model">auditlog.log</field>
         <field name="inherit_id" ref="auditlog.view_auditlog_log_form" />
         <field name="arch" type="xml">
+            <xpath expr="/form/*" position="before">
+                <header>
+                    <button
+                        string="Preprocess"
+                        name="prepare_auditlog_events"
+                        type="object"
+                        states="captured,Pulled"
+                        groups="base.group_no_one"
+                    />
+                    <button
+                        string="Apply"
+                        name="apply_event_data"
+                        type="object"
+                        states="Pulled"
+                        groups="base.group_no_one"
+                    />
+                    <button
+                        string="Reprocess"
+                        name="reprocess_error_events"
+                        type="object"
+                        states="Error,Failed"
+                        class="oe_highlight"
+                    />
+                    <field
+                        name="state"
+                        widget="statusbar"
+                        options="{'clickable': '1'}"
+                    />
+                </header>
+            </xpath>
+            <!--
+            <field name="model_id" position="before">
+                <field name="state" groups="base.no_one" />
+            </field>
+            -->
             <field name="line_ids" position="replace" />
-            <!-- <field name="name" position="after">
-                <field name="state"/>
-            </field> -->
             <xpath expr="//sheet" position="inside">
                 <notebook>
                     <page string="Fields Updated" name="fields_updated">
@@ -106,18 +83,6 @@
                     </page>
                 </notebook>
             </xpath>
-            <xpath expr="/form/*" position="before">
-                <header>
-                    <button
-                        string="Reprocess"
-                        name="reprocess_error_events"
-                        type="object"
-                        states="Error,Failed"
-                        class="oe_highlight"
-                    />
-                    <field name="state" widget="statusbar" />
-                </header>
-            </xpath>
         </field>
     </record>
     <record model="ir.ui.view" id="view_auditlog_log_processed_tree">
@@ -155,7 +120,6 @@
         <field name="type">ir.actions.server</field>
         <field name="model_id" ref="auditlog.model_auditlog_log" />
         <field name="binding_model_id" ref="auditlog.model_auditlog_log" />
-        <field name="binding_view_types">list</field>
         <field name="code">model.reprocess_error_events()</field>
         <field name="state">code</field>
     </record>
