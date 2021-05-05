@@ -143,7 +143,12 @@ class AuditlogLog(models.Model):
                     "name": rec_name,
                     "res_id": log.res_id,
                 }
-                self.env["ir.model.data"].create(ext_id_vals)
+                ext_id_exists = self.env["ir.model.data"].search([
+                    ("model", "=", log.model_name),
+                    ("res_id", "=", log.res_id)
+                ])
+                if not ext_id_exists:
+                    self.env["ir.model.data"].create(ext_id_vals)
             res = _get_external_id(rec)
             xml_id = res[rec.id] and res[rec.id][0] or False
             args = log._prepare_args_kwargs(log.raw_args_kwargs, log.model_id.model)

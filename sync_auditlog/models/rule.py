@@ -114,11 +114,9 @@ class AuditlogRule(models.Model):
                         else:
                             child_count = 1
                         self = self.with_context(sync_child_count=child_count)
-                        if not child_count:
-                            child_count = 0
                         additional_log_values.update(
                             {
-                                "external_id": child_logs[child_count].external_id,
+                                "external_id": child_logs[child_count-1].external_id,
                             }
                         )
                        
