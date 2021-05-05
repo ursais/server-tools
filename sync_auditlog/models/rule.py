@@ -130,7 +130,9 @@ class AuditlogRule(models.Model):
                     "create",
                     additional_log_values=additional_log_values,
                 )
-                return new_records
+            else:
+                new_records = logged_create_call.origin(self, vals_list, **kwargs)
+            return new_records
 
         return logged_create_call
 
@@ -162,8 +164,8 @@ class AuditlogRule(models.Model):
                     method,
                     additional_log_values=additional_log_values,
                 )
-                result = logged_method_call.origin(self, *args, **kwargs)
-                return result
+            result = logged_method_call.origin(self, *args, **kwargs)
+            return result
 
         return logged_method_call
 

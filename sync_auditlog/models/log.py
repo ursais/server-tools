@@ -490,10 +490,7 @@ class AuditlogLog(models.Model):
                     event.state = "Processed"
                 except Exception as e:
                     event.result = str(e)
-                    if event.state == "Error":
-                        event.state = "Failed"
-                    else:
-                        event.state = "Error"
+                    event.state = "Failed" if event.state == "Error" else "Error"
             else:
                 _logger.warn(
                     "Can't apply %s on %d, record %s does not exist",
