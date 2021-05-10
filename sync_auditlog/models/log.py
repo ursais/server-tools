@@ -427,7 +427,7 @@ class AuditlogLog(models.Model):
             if not field:
                 continue
             if field.ttype == "many2one":
-                args_kwargs.update({key: ast.literal_eval(val).id})
+                args_kwargs.update({key: eval(val).id})
             elif field.ttype == "one2many":
                 for line in val:
                     self._prepare_args_kwargs_to_apply(self, line[2], field.relation)
@@ -436,7 +436,7 @@ class AuditlogLog(models.Model):
                 for lines in val:
                     m2m_ids = []
                     for line in lines[2]:
-                        m2m_ids.append(ast.literal_eval(line).id)
+                        m2m_ids.append(eval(line).id)
                     m2m_list.append((6, 0, m2m_ids))
                 args_kwargs.update({key: m2m_list})
         return args_kwargs
