@@ -110,7 +110,7 @@ class AuditlogLog(models.Model):
         if not args and not relational_model:
             return {}
         if isinstance(args, str):
-            args = ast.literal_eval(args.strip("]["))
+            args = ast.literal_eval(args) and ast.literal_eval(args)[0]
         if not isinstance(args, dict):
             return {}
         for k, v in args.items():
