@@ -44,7 +44,11 @@
             <field name="line_ids" position="replace" />
             <xpath expr="//sheet" position="inside">
                 <notebook>
-                    <page string="Fields Updated" name="fields_updated">
+                    <page
+                        string="Fields Updated"
+                        name="fields_updated"
+                        attrs="{'invisible': [('log_type', '=', 'no_log')]}"
+                    >
                         <field name="line_ids" readonly="1" nolabel="1">
                             <form string="Log - Field updated">
                                 <group>
@@ -67,15 +71,19 @@
                             </tree>
                         </field>
                     </page>
-                    <page string="Sync data" name="sync_data">
+                    <page
+                        string="Sync data"
+                        name="sync_data"
+                        attrs="{'invisible': [('method', '=', False)]}"
+                    >
                         <group col="4">
                             <field name="uuid" />
                             <field name="timestamp" />
                             <field name="resource_ids" />
+                            <field name="external_id" />
                             <field name="raw_args_kwargs" />
                             <field name="prepared_args_kwargs" />
                             <field name="context" />
-                            <field name="external_id" />
                             <field name="parent_uuid" />
                             <field name="result" />
                             <field name="remote" />

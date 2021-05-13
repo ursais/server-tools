@@ -1,10 +1,9 @@
 # Copyright (C) 2021 Open Source Integrators
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 import ast
+import copy
 import logging
 import uuid
-import datetime
-import copy
 
 from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import ValidationError
@@ -115,9 +114,11 @@ class AuditlogLog(models.Model):
             args = eval(args) and eval(args)[0]
         if not isinstance(args, dict):
             return {}
-        model_rule = self.env["auditlog.rule"].search([("model_id", "=", self.model_id.id)])
+        model_rule = self.env["auditlog.rule"].search(
+            [("model_id", "=", self.model_id.id)]
+        )
         args_temp = copy.deepcopy(args)
-        for k, v in args_temp.items():
+        for k in args_temp.keys():
             if model_rule.white_list_fields:
                 white_list_field = model_rule.white_list_fields.filtered(
                     lambda l: l.name == k
@@ -446,7 +447,7 @@ class AuditlogLog(models.Model):
             if not field:
                 continue
             if field.ttype == "many2one":
-                args_kwargs.update({key: eval(val).id})
+                args_kwargs.update({key: ast.literal_eval(val).id})
             elif field.ttype == "one2many":
                 for line in val:
                     self._prepare_args_kwargs_to_apply(self, line[2], field.relation)
@@ -455,7 +456,7 @@ class AuditlogLog(models.Model):
                 for lines in val:
                     m2m_ids = []
                     for line in lines[2]:
-                        m2m_ids.append(eval(line).id)
+                        m2m_ids.append(ast.literal_eval(line).id)
                     m2m_list.append((6, 0, m2m_ids))
                 args_kwargs.update({key: m2m_list})
         return args_kwargs
@@ -479,6 +480,7 @@ class AuditlogLog(models.Model):
                 event, pulled_args_kwargs, event.model_id.model
             )
             event_user = event.user_id.active and event.user_id or SUPERUSER_ID
+            target_model = self.env[event.model_name].with_user(event_user)
             target_record = None
             try:
                 target_record = self.env.ref(event.external_id)
@@ -490,27 +492,16 @@ class AuditlogLog(models.Model):
                     event.state = "Cancelled"
                 else:
                     try:
-                        new_record = (
-                            self.env[event.model_name]
-                            .with_user(event_user)
-                            .create(args_kwargs)
-                        )
-                        event.state = "Processed"
-                        _set_external_id(
-                            event.model_name, new_record, event.external_id
-                        )
+                        with self.env.cr.savepoint():
+                            new_record = target_model.create(args_kwargs)
+                            event.state = "Processed"
+                            _set_external_id(
+                                event.model_name, new_record, event.external_id
+                            )
                     except Exception as e:
                         event.result = str(e)
                         event.state = "Failed" if event.state == "Error" else "Error"
-            elif target_record:
-                method = getattr(target_record.with_user(event_user), event.method)
-                try:
-                    method(args_kwargs)
-                    event.state = "Processed"
-                except Exception as e:
-                    event.result = str(e)
-                    event.state = "Failed" if event.state == "Error" else "Error"
-            else:
+            elif not target_record:
                 _logger.warn(
                     "Can't apply %s on %d, record %s does not exist",
                     event.method,
@@ -519,6 +510,15 @@ class AuditlogLog(models.Model):
                 )
                 event.state = "Error"
                 event.result = "Record does not exist"
+            else:
+                method = getattr(target_model, event.method)
+                try:
+                    with self.env.cr.savepoint():
+                        method(args_kwargs)
+                        event.state = "Processed"
+                except Exception as e:
+                    event.result = str(e)
+                    event.state = "Failed" if event.state == "Error" else "Error"
             # TODO self.env.cr.commit()
         return
 

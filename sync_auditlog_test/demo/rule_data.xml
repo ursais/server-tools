@@ -1,9 +1,30 @@
 <odoo>
     <record model="auditlog.rule" id="rule_product_category">
-        <field name="name">Product Category Test Rule</field>
+        <field name="name">Product Category Rule</field>
         <field name="model_id" ref="product.model_product_category" />
         <field name="log_type">no_log</field>
         <field name="sync_type">master</field>
+        <field name="state">subscribed</field>
+    </record>
+    <record model="auditlog.rule" id="rule_product_template">
+        <field name="name">Product Template Rule</field>
+        <field name="model_id" ref="product.model_product_template" />
+        <field name="log_type">no_log</field>
+        <field name="sync_type">master</field>
+        <field name="state">subscribed</field>
+    </record>
+    <record model="auditlog.rule" id="rule_product_product">
+        <field name="name">Product Variant Rule</field>
+        <field name="model_id" ref="product.model_product_product" />
+        <field name="log_type">no_log</field>
+        <field name="sync_type">master</field>
+        <field name="state">subscribed</field>
+    </record>
+    <record model="auditlog.rule" id="rule_stock_picking">
+        <field name="name">Stock Pikcing Rule</field>
+        <field name="model_id" ref="stock.model_stock_picking" />
+        <field name="log_type">no_log</field>
+        <field name="sync_type">transaction</field>
         <field name="state">subscribed</field>
     </record>
 </odoo>
