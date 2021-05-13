@@ -3,6 +3,8 @@
 import ast
 import logging
 import uuid
+import datetime
+import copy
 
 from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import ValidationError
@@ -110,9 +112,26 @@ class AuditlogLog(models.Model):
         if not args and not relational_model:
             return {}
         if isinstance(args, str):
-            args = ast.literal_eval(args) and ast.literal_eval(args)[0]
+            args = eval(args) and eval(args)[0]
         if not isinstance(args, dict):
             return {}
+        model_rule = self.env["auditlog.rule"].search([("model_id", "=", self.model_id.id)])
+        args_temp = copy.deepcopy(args)
+        for k, v in args_temp.items():
+            if model_rule.white_list_fields:
+                white_list_field = model_rule.white_list_fields.filtered(
+                    lambda l: l.name == k
+                )
+                if not white_list_field:
+                    args.pop(k)
+                    continue
+            elif model_rule.white_list_fields:
+                black_list_field = model_rule.black_list_fields.filtered(
+                    lambda l: l.name == k
+                )
+                if black_list_field:
+                    args.pop(k)
+                    continue
         for k, v in args.items():
             if not v:
                 continue
@@ -455,7 +474,7 @@ class AuditlogLog(models.Model):
         for event in events:
             if not event.parent_uuid:
                 self = self.with_context(sync_apply_parent=event.uuid)
-            pulled_args_kwargs = ast.literal_eval(event.prepared_args_kwargs)
+            pulled_args_kwargs = eval(event.prepared_args_kwargs)
             args_kwargs = self._prepare_args_kwargs_to_apply(
                 event, pulled_args_kwargs, event.model_id.model
             )
