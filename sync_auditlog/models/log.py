@@ -1,6 +1,5 @@
 # Copyright (C) 2021 Open Source Integrators
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
-import ast
 import copy
 import logging
 import uuid
@@ -447,7 +446,7 @@ class AuditlogLog(models.Model):
             if not field:
                 continue
             if field.ttype == "many2one":
-                args_kwargs.update({key: ast.literal_eval(val).id})
+                args_kwargs.update({key: eval(val).id})
             elif field.ttype == "one2many":
                 for line in val:
                     self._prepare_args_kwargs_to_apply(self, line[2], field.relation)
@@ -456,7 +455,7 @@ class AuditlogLog(models.Model):
                 for lines in val:
                     m2m_ids = []
                     for line in lines[2]:
-                        m2m_ids.append(ast.literal_eval(line).id)
+                        m2m_ids.append(eval(line).id)
                     m2m_list.append((6, 0, m2m_ids))
                 args_kwargs.update({key: m2m_list})
         return args_kwargs
@@ -469,9 +468,12 @@ class AuditlogLog(models.Model):
 
     def apply_event_data(self):
         # TODO: support case where event applies to a list of IDs
-        events = self.filtered_domain(
-            [("state", "=", "Pulled"), ("parent_uuid", "=", False)]
-        )
+        context = self.env.context
+        events = self
+        if not context.get("reprocess_events"):
+            events = self.filtered_domain(
+                [("state", "=", "Pulled"), ("parent_uuid", "=", False)]
+            )
         for event in events:
             if not event.parent_uuid:
                 self = self.with_context(sync_apply_parent=event.uuid)
@@ -493,7 +495,9 @@ class AuditlogLog(models.Model):
                 else:
                     try:
                         with self.env.cr.savepoint():
-                            new_record = target_model.create(args_kwargs)
+                            new_record = target_model.with_context(
+                                mail_create_nosubscribe=True
+                            ).create(args_kwargs)
                             event.state = "Processed"
                             _set_external_id(
                                 event.model_name, new_record, event.external_id
@@ -524,4 +528,4 @@ class AuditlogLog(models.Model):
 
     def reprocess_error_events(self):
         events = self.filtered(lambda event: event.state == "Error")
-        events.apply_event_data()
+        events.with_context(reprocess_events=True).apply_event_data()
