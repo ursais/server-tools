@@ -104,15 +104,11 @@ class AuditlogLog(models.Model):
         )
     ]
 
-    def _prepare_args_kwargs(self, args, relational_model):
-        # prepare args kwargs and with IDs replaed with ref(<XMLId>)
-        ir_model_obj = self.env["ir.model"]
-        if not args and not relational_model:
-            return {}
-        if isinstance(args, str):
-            args = eval(args) and eval(args)[0]
-        if not isinstance(args, dict):
-            return {}
+    def _set_white_block_list_fields(self, args):
+        """
+            Add only whitelist fields if whitelist
+            else if remove the blocklist fields if blocklist into args
+            """
         model_rule = self.env["auditlog.rule"].search(
             [("model_id", "=", self.model_id.id)]
         )
@@ -125,13 +121,24 @@ class AuditlogLog(models.Model):
                 if not white_list_field:
                     args.pop(k)
                     continue
-            elif model_rule.white_list_fields:
+            elif model_rule.black_list_fields:
                 black_list_field = model_rule.black_list_fields.filtered(
                     lambda l: l.name == k
                 )
                 if black_list_field:
                     args.pop(k)
                     continue
+
+    def _prepare_args_kwargs(self, args, relational_model):
+        # prepare args kwargs and with IDs replaed with ref(<XMLId>)
+        ir_model_obj = self.env["ir.model"]
+        if not args and not relational_model:
+            return {}
+        if isinstance(args, str):
+            args = eval(args) and eval(args)[0]
+        if not isinstance(args, dict):
+            return {}
+        self._set_white_block_list_fields(args)
         for k, v in args.items():
             if not v:
                 continue
