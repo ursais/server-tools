@@ -3,9 +3,11 @@
 import copy
 import logging
 import uuid
+from ast import literal_eval
 
 from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import ValidationError
+from odoo.tools.safe_eval import safe_eval
 
 _logger = logging.getLogger(__name__)
 
@@ -135,7 +137,7 @@ class AuditlogLog(models.Model):
         if not args and not relational_model:
             return {}
         if isinstance(args, str):
-            args = eval(args) and eval(args)[0]
+            args = literal_eval(args) and literal_eval(args)[0]
         if not isinstance(args, dict):
             return {}
         self._set_white_block_list_fields(args)
@@ -453,7 +455,10 @@ class AuditlogLog(models.Model):
             if not field:
                 continue
             if field.ttype == "many2one":
-                args_kwargs.update({key: eval(val).id})
+                m2odict = dict(self=self)
+                vals = "=".join(["result", val])
+                safe_eval(vals, m2odict, mode="exec", nocopy=True)
+                args_kwargs.update({key: m2odict.get("result").id})
             elif field.ttype == "one2many":
                 for line in val:
                     self._prepare_args_kwargs_to_apply(self, line[2], field.relation)
@@ -462,7 +467,10 @@ class AuditlogLog(models.Model):
                 for lines in val:
                     m2m_ids = []
                     for line in lines[2]:
-                        m2m_ids.append(eval(line).id)
+                        m2mdict = dict(self=self)
+                        vals = "=".join(["result", line])
+                        safe_eval(vals, m2mdict, mode="exec", nocopy=True)
+                        m2m_ids.append(m2mdict.get("result").id)
                     m2m_list.append((6, 0, m2m_ids))
                 args_kwargs.update({key: m2m_list})
         return args_kwargs
@@ -484,7 +492,7 @@ class AuditlogLog(models.Model):
         for event in events:
             if not event.parent_uuid:
                 self = self.with_context(sync_apply_parent=event.uuid)
-            pulled_args_kwargs = eval(event.prepared_args_kwargs)
+            pulled_args_kwargs = literal_eval(event.prepared_args_kwargs)
             args_kwargs = self._prepare_args_kwargs_to_apply(
                 event, pulled_args_kwargs, event.model_id.model
             )
