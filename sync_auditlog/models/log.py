@@ -1,9 +1,12 @@
 # Copyright (C) 2021 Open Source Integrators
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 import copy
+import datetime
 import logging
+import time
 import uuid
-from ast import literal_eval
+
+import dateutil
 
 from odoo import SUPERUSER_ID, _, api, fields, models
 from odoo.exceptions import ValidationError
@@ -131,13 +134,30 @@ class AuditlogLog(models.Model):
                     args.pop(k)
                     continue
 
+    def _get_eval_context(self):
+        # take the reference from odoo's base_automation module
+        """ Prepare the context used when evaluating python code
+            :returns: dict -- evaluation context given to safe_eval
+        """
+        return {
+            "datetime": datetime,
+            "dateutil": dateutil,
+            "time": time,
+            "uid": self.env.uid,
+            "user": self.env.user,
+            "self": self,
+        }
+
     def _prepare_args_kwargs(self, args, relational_model):
         # prepare args kwargs and with IDs replaed with ref(<XMLId>)
         ir_model_obj = self.env["ir.model"]
         if not args and not relational_model:
             return {}
         if isinstance(args, str):
-            args = literal_eval(args) and literal_eval(args)[0]
+            args = (
+                safe_eval(args, self._get_eval_context())
+                and safe_eval(args, self._get_eval_context())[0]
+            )
         if not isinstance(args, dict):
             return {}
         self._set_white_block_list_fields(args)
@@ -455,10 +475,7 @@ class AuditlogLog(models.Model):
             if not field:
                 continue
             if field.ttype == "many2one":
-                m2odict = dict(self=self)
-                vals = "=".join(["result", val])
-                safe_eval(vals, m2odict, mode="exec", nocopy=True)
-                args_kwargs.update({key: m2odict.get("result").id})
+                args_kwargs.update({key: safe_eval(val, self._get_eval_context()).id})
             elif field.ttype == "one2many":
                 for line in val:
                     self._prepare_args_kwargs_to_apply(self, line[2], field.relation)
@@ -467,10 +484,7 @@ class AuditlogLog(models.Model):
                 for lines in val:
                     m2m_ids = []
                     for line in lines[2]:
-                        m2mdict = dict(self=self)
-                        vals = "=".join(["result", line])
-                        safe_eval(vals, m2mdict, mode="exec", nocopy=True)
-                        m2m_ids.append(m2mdict.get("result").id)
+                        m2m_ids.append(safe_eval(line, self._get_eval_context()).id)
                     m2m_list.append((6, 0, m2m_ids))
                 args_kwargs.update({key: m2m_list})
         return args_kwargs
@@ -492,7 +506,7 @@ class AuditlogLog(models.Model):
         for event in events:
             if not event.parent_uuid:
                 self = self.with_context(sync_apply_parent=event.uuid)
-            pulled_args_kwargs = literal_eval(event.prepared_args_kwargs)
+            pulled_args_kwargs = safe_eval(event.prepared_args_kwargs)
             args_kwargs = self._prepare_args_kwargs_to_apply(
                 event, pulled_args_kwargs, event.model_id.model
             )
@@ -520,6 +534,15 @@ class AuditlogLog(models.Model):
                     except Exception as e:
                         event.result = str(e)
                         event.state = "Failed" if event.state == "Error" else "Error"
+            elif target_record:
+                method = getattr(target_record, event.method)
+                try:
+                    with self.env.cr.savepoint():
+                        method(args_kwargs)
+                        event.state = "Processed"
+                except Exception as e:
+                    event.result = str(e)
+                    event.state = "Failed" if event.state == "Error" else "Error"
             elif not target_record:
                 _logger.warn(
                     "Can't apply %s on %d, record %s does not exist",
@@ -538,7 +561,7 @@ class AuditlogLog(models.Model):
                 except Exception as e:
                     event.result = str(e)
                     event.state = "Failed" if event.state == "Error" else "Error"
-            # TODO self.env.cr.commit()
+            self.env.cr.commit()
         return
 
     def reprocess_error_events(self):
