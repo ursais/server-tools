@@ -121,15 +121,17 @@ class AuditlogRule(models.Model):
                         )
 
                 new_records = logged_create_call.origin(self, vals_list, **kwargs)
-                # Note that the Log is created after the call is done
-                # (and depending calls are processed)
-                self.env["auditlog.rule"].sudo().create_logs(
-                    self.env.uid,
-                    self._name,
-                    new_records.ids,
-                    "create",
-                    additional_log_values=additional_log_values,
-                )
+                for new_record in new_records:
+                    additional_log_values.update({"uuid": uuid.uuid4()})
+                    # Note that the Log is created after the call is done
+                    # (and depending calls are processed)
+                    self.env["auditlog.rule"].sudo().create_logs(
+                        self.env.uid,
+                        self._name,
+                        new_record.ids,
+                        "create",
+                        additional_log_values=additional_log_values,
+                    )
             else:
                 new_records = logged_create_call.origin(self, vals_list, **kwargs)
             return new_records
