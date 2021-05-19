@@ -121,8 +121,13 @@ class AuditlogRule(models.Model):
                         )
 
                 new_records = logged_create_call.origin(self, vals_list, **kwargs)
+                # Hotfix: Pass correct UUID to First record to identify Child Logs
+                new_uuid = False
                 for new_record in new_records:
-                    additional_log_values.update({"uuid": uuid.uuid4()})
+                    if new_uuid:
+                        additional_log_values.update({"uuid": uuid.uuid4()})
+                    else:
+                        new_uuid = True
                     # Note that the Log is created after the call is done
                     # (and depending calls are processed)
                     self.env["auditlog.rule"].sudo().create_logs(
