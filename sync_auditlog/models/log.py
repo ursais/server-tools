@@ -506,7 +506,7 @@ class AuditlogLog(models.Model):
         for event in events:
             if not event.parent_uuid:
                 self = self.with_context(sync_apply_parent=event.uuid)
-            pulled_args_kwargs = safe_eval(event.prepared_args_kwargs)
+            pulled_args_kwargs = safe_eval(event.prepared_args_kwargs, self._get_eval_context())
             args_kwargs = self._prepare_args_kwargs_to_apply(
                 event, pulled_args_kwargs, event.model_id.model
             )
