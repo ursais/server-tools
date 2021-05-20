@@ -506,7 +506,9 @@ class AuditlogLog(models.Model):
         for event in events:
             if not event.parent_uuid:
                 self = self.with_context(sync_apply_parent=event.uuid)
-            pulled_args_kwargs = safe_eval(event.prepared_args_kwargs, self._get_eval_context())
+            pulled_args_kwargs = safe_eval(
+                event.prepared_args_kwargs, self._get_eval_context()
+            )
             args_kwargs = self._prepare_args_kwargs_to_apply(
                 event, pulled_args_kwargs, event.model_id.model
             )
@@ -538,7 +540,10 @@ class AuditlogLog(models.Model):
                 method = getattr(target_record, event.method)
                 try:
                     with self.env.cr.savepoint():
-                        method(args_kwargs)
+                        if not args_kwargs:
+                            method()
+                        else:
+                            method(args_kwargs)
                         event.state = "Processed"
                 except Exception as e:
                     event.result = str(e)

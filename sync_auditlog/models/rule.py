@@ -12,6 +12,24 @@ from odoo import api, fields, models
 _logger = logging.getLogger(__name__)
 
 
+def _set_external_id(model_name, record, xmlid):
+    """
+    Create an External ID.
+    If it already exists, update to ensure it is pointing to this record.
+    """
+    ModelData = record.env["ir.model.data"]
+    res_id = ModelData.xmlid_to_res_id(xmlid)
+    if not res_id:
+        module, name = xmlid.split(".", 1)
+        ModelData.create(
+            {"model": model_name, "res_id": record, "module": module, "name": name}
+        )
+    elif res_id != record.id:
+        data_id = ModelData.xmlid_lookup(xmlid)[0]
+        data = ModelData.browse(data_id)
+        data.res_id = record.id
+
+
 class AuditlogRule(models.Model):
     _inherit = "auditlog.rule"
 
@@ -116,9 +134,12 @@ class AuditlogRule(models.Model):
                         else:
                             child_count = 1
                         self = self.with_context(sync_child_count=child_count)
+                        child_log = child_logs[child_count - 1]
                         additional_log_values.update(
-                            {"external_id": child_logs[child_count - 1].external_id}
+                            {"external_id": child_log.external_id}
                         )
+                        external_id = child_log.external_id
+                        child_log.state = "Processed"
 
                 new_records = logged_create_call.origin(self, vals_list, **kwargs)
                 # Hotfix: Pass correct UUID to First record to identify Child Logs
@@ -128,6 +149,9 @@ class AuditlogRule(models.Model):
                         additional_log_values.update({"uuid": uuid.uuid4()})
                     else:
                         new_uuid = True
+                        if update_ext_id and doing_sync:
+                            if child_logs:
+                                _set_external_id(self._name, new_record, external_id)
                     # Note that the Log is created after the call is done
                     # (and depending calls are processed)
                     self.env["auditlog.rule"].sudo().create_logs(
