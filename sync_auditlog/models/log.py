@@ -499,6 +499,9 @@ class AuditlogLog(models.Model):
         # TODO: support case where event applies to a list of IDs
         context = self.env.context
         events = self
+        server = self.env["auditlog.remote.server"].search([], limit=1)
+        if server:
+            self = self.with_context(is_client=True)
         if not context.get("reprocess_events"):
             events = self.filtered_domain(
                 [("state", "=", "Pulled"), ("parent_uuid", "=", False)]
