@@ -165,8 +165,9 @@ class AuditlogRule(models.Model):
                             "create",
                             additional_log_values=additional_log_values,
                         )
+                # ToDo Optimize the logic for handling child logs
                 if update_ext_id and doing_sync:
-                    if child_logs:
+                    if child_logs and child_count:
                         if child_count >= len(child_logs):
                             child_count = 0
                         self = self.with_context(sync_child_count=child_count)
