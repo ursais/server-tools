@@ -125,8 +125,9 @@ class AuditlogRule(models.Model):
                         [
                             ("parent_uuid", "=", update_ext_id),
                             ("state", "in", ("Pulled", "Processed")),
+                            ("model_name", "=", self._name),
                         ],
-                        order="timestamp",
+                        order="timestamp, model_id, res_id",
                     )
                     if child_logs:
                         child_count = self.env.context.get("sync_child_count")
@@ -166,6 +167,8 @@ class AuditlogRule(models.Model):
                         )
                 if update_ext_id and doing_sync:
                     if child_logs:
+                        if child_count >= len(child_logs):
+                            child_count = 0
                         self = self.with_context(sync_child_count=child_count)
             else:
                 new_records = logged_create_call.origin(self, vals_list, **kwargs)
