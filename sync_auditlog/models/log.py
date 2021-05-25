@@ -524,14 +524,14 @@ class AuditlogLog(models.Model):
             except Exception as e:
                 event.result = str(e)
                 event.state = "Failed" if event.state == "Error" else "Error"
-                continue
+                break
             event_user = event.user_id.active and event.user_id or SUPERUSER_ID
             target_model = self.env[event.model_name].with_user(event_user)
             target_record = None
             try:
                 target_record = self.env.ref(event.external_id)
             except Exception:
-                pass
+                break
             if event.method == "create":
                 if target_record:
                     _logger.warn("Can't create, %s already exists", event.external_id)
@@ -549,8 +549,9 @@ class AuditlogLog(models.Model):
                     except Exception as e:
                         event.result = str(e)
                         event.state = "Failed" if event.state == "Error" else "Error"
+                        break
             elif target_record:
-                method = getattr(target_record, event.method)
+                method = getattr(target_record.with_user(event_user), event.method)
                 try:
                     with self.env.cr.savepoint():
                         if not args_kwargs:
@@ -561,6 +562,7 @@ class AuditlogLog(models.Model):
                 except Exception as e:
                     event.result = str(e)
                     event.state = "Failed" if event.state == "Error" else "Error"
+                    break
             elif not target_record:
                 _logger.warn(
                     "Can't apply %s on %d, record %s does not exist",
@@ -571,7 +573,7 @@ class AuditlogLog(models.Model):
                 event.state = "Error"
                 event.result = "Record does not exist"
             else:
-                method = getattr(target_model, event.method)
+                method = getattr(target_model.with_user(event_user), event.method)
                 try:
                     with self.env.cr.savepoint():
                         method(args_kwargs)
@@ -579,6 +581,7 @@ class AuditlogLog(models.Model):
                 except Exception as e:
                     event.result = str(e)
                     event.state = "Failed" if event.state == "Error" else "Error"
+                    break
             self.env.cr.commit()
         return
 
