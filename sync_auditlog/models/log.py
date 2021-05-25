@@ -531,7 +531,7 @@ class AuditlogLog(models.Model):
             try:
                 target_record = self.env.ref(event.external_id)
             except Exception:
-                break
+                pass
             if event.method == "create":
                 if target_record:
                     _logger.warn("Can't create, %s already exists", event.external_id)
