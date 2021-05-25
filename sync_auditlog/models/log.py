@@ -148,8 +148,17 @@ class AuditlogLog(models.Model):
             "self": self,
         }
 
+    def _prepare_external_id(self, rec):
+        if not rec:
+            return False
+        res = _get_external_id(rec)
+        xml_id = res[rec.id] and res[rec.id][0] or False
+        if not xml_id:
+            return False
+        return "self.env.ref('" + xml_id + "')"
+
     def _prepare_args_kwargs(self, args, relational_model):
-        # prepare args kwargs and with IDs replaed with ref(<XMLId>)
+        # prepare args kwargs and with IDs replaced with ref(<XMLId>)
         ir_model_obj = self.env["ir.model"]
         if not args and not relational_model:
             return {}
@@ -174,27 +183,21 @@ class AuditlogLog(models.Model):
             if field.ttype == "many2one":
                 relation_model = field.relation
                 rec = self.env[relation_model].browse(v)
-                res = _get_external_id(rec)
-                xml_id = res[rec.id] and res[rec.id][0] or False
-                if not xml_id:
-                    continue
-                env_ref = "self.env.ref('" + xml_id + "')"
-                args.update({k: env_ref})
+                args.update({k: self._prepare_external_id(rec)})
             elif field.ttype == "one2many":
                 for line in v:
+                    if line[0] in (1, 2, 3, 4):
+                        rec = self.env[field.relation].browse(line[1])
+                        line[1] = self._prepare_external_id(rec)
                     self._prepare_args_kwargs(line[2], field.relation)
+
             elif field.ttype == "many2many":
                 for line in v:
                     relation_model = field.relation
                     recs = self.env[relation_model].browse(line[2])
                     m2m_list = []
                     for rec in recs:
-                        res = _get_external_id(rec)
-                        xml_id = res[rec.id] and res[rec.id][0] or False
-                        if not xml_id:
-                            continue
-                        env_ref = "self.env.ref('" + xml_id + "')"
-                        m2m_list.append(env_ref)
+                        m2m_list.append(self._prepare_external_id(rec))
                     args.update({k: [(6, 0, m2m_list)]})
         return args
 
@@ -205,7 +208,6 @@ class AuditlogLog(models.Model):
     def prepare_auditlog_events(self):
         logs = self.filtered(lambda x: x.state in ["captured", "Pulled"])
         for log in logs:
-            # ToDo - prepared_args_kwargs and external_id
             if not log.model_id and log.res_id:
                 continue
             rec = self.env[log.model_id.model].browse(log.res_id)
@@ -478,6 +480,8 @@ class AuditlogLog(models.Model):
                 args_kwargs.update({key: safe_eval(val, self._get_eval_context()).id})
             elif field.ttype == "one2many":
                 for line in val:
+                    if line[0] in (1, 2, 3, 4):
+                        line[1] = safe_eval(line[1], self._get_eval_context()).id
                     self._prepare_args_kwargs_to_apply(self, line[2], field.relation)
             elif field.ttype == "many2many":
                 m2m_list = []
@@ -512,9 +516,15 @@ class AuditlogLog(models.Model):
             pulled_args_kwargs = safe_eval(
                 event.prepared_args_kwargs, self._get_eval_context()
             )
-            args_kwargs = self._prepare_args_kwargs_to_apply(
-                event, pulled_args_kwargs, event.model_id.model
-            )
+            args_kwargs = {}
+            try:
+                args_kwargs = self._prepare_args_kwargs_to_apply(
+                    event, pulled_args_kwargs, event.model_id.model
+                )
+            except Exception as e:
+                event.result = str(e)
+                event.state = "Failed" if event.state == "Error" else "Error"
+                continue
             event_user = event.user_id.active and event.user_id or SUPERUSER_ID
             target_model = self.env[event.model_name].with_user(event_user)
             target_record = None
