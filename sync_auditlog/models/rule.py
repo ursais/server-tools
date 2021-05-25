@@ -125,21 +125,11 @@ class AuditlogRule(models.Model):
                         [
                             ("parent_uuid", "=", update_ext_id),
                             ("state", "in", ("Pulled", "Processed")),
-                        ]
+                        ],
+                        order="timestamp",
                     )
                     if child_logs:
                         child_count = self.env.context.get("sync_child_count")
-                        if child_count:
-                            child_count += 1
-                        else:
-                            child_count = 1
-                        self = self.with_context(sync_child_count=child_count)
-                        child_log = child_logs[child_count - 1]
-                        additional_log_values.update(
-                            {"external_id": child_log.external_id}
-                        )
-                        external_id = child_log.external_id
-                        child_log.state = "Processed"
 
                 new_records = logged_create_call.origin(self, vals_list, **kwargs)
                 # Hotfix: Pass correct UUID to First record to identify Child Logs
@@ -150,9 +140,20 @@ class AuditlogRule(models.Model):
                         additional_log_values.update({"uuid": uuid.uuid4()})
                     else:
                         new_uuid = True
-                        if update_ext_id and doing_sync:
-                            if child_logs:
-                                _set_external_id(self._name, new_record, external_id)
+                    if update_ext_id and doing_sync:
+                        # ToDo clean up logic for assigning ext ids to child records
+                        if child_logs:
+                            if child_count:
+                                child_count += 1
+                            else:
+                                child_count = 1
+                            child_log = child_logs[child_count - 1]
+                            additional_log_values.update(
+                                {"external_id": child_log.external_id}
+                            )
+                            external_id = child_log.external_id
+                            child_log.state = "Processed"
+                            _set_external_id(self._name, new_record, external_id)
                     # Note that the Log is created after the call is done
                     # (and depending calls are processed)
                     if not is_client:
@@ -163,6 +164,9 @@ class AuditlogRule(models.Model):
                             "create",
                             additional_log_values=additional_log_values,
                         )
+                if update_ext_id and doing_sync:
+                    if child_logs:
+                        self = self.with_context(sync_child_count=child_count)
             else:
                 new_records = logged_create_call.origin(self, vals_list, **kwargs)
             return new_records
