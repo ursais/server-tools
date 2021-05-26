@@ -198,27 +198,27 @@ class AuditlogRule(models.Model):
         def logged_method_call(self, *args, **kwargs):
             doing_sync = self.env.context.get("sync_auditlog_working")
             is_client = self.env.context.get("is_client")
-            for rec in self:
-                if sync_type and not doing_sync:
-                    uuid_num = uuid.uuid4()
-                    rec = rec.with_context(sync_auditlog_working=uuid_num)
-                    additional_log_values = {
-                        "log_type": "no_log",
-                        "uuid": uuid_num,
-                        "timestamp": datetime.now(),
-                        "resource_ids": rec.ids,
-                        "raw_args_kwargs": args,  # FIXME: missing storing kwargs
-                        "context": rec.env.context,
-                        "state": "captured",
-                    }
-                    if not is_client:
-                        self.env["auditlog.rule"].sudo().create_logs(
-                            rec.env.uid,
-                            rec._name,
-                            rec.ids,
-                            method,
-                            additional_log_values=additional_log_values,
-                        )
+#            for rec in self:
+            if sync_type and not doing_sync:
+                uuid_num = uuid.uuid4()
+                self = self.with_context(sync_auditlog_working=uuid_num)
+                additional_log_values = {
+                    "log_type": "no_log",
+                    "uuid": uuid_num,
+                    "timestamp": datetime.now(),
+                    "resource_ids": self.ids,
+                    "raw_args_kwargs": args,  # FIXME: missing storing kwargs
+                    "context": self.env.context,
+                    "state": "captured",
+                }
+                if not is_client:
+                    self.env["auditlog.rule"].sudo().create_logs(
+                        self.env.uid,
+                        self._name,
+                        self.ids,
+                        method,
+                        additional_log_values=additional_log_values,
+                    )
             result = logged_method_call.origin(self, *args, **kwargs)
             return result
 
