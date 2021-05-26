@@ -136,25 +136,35 @@ class AuditlogRule(models.Model):
                 # Hotfix: Pass correct UUID to First record to identify Child Logs
                 new_uuid = False
                 is_client = self.env.context.get("is_client")
+                cnt = 0
                 for new_record in new_records:
                     if new_uuid:
                         additional_log_values.update({"uuid": uuid.uuid4()})
                     else:
                         new_uuid = True
                     if update_ext_id and doing_sync:
-                        # ToDo clean up logic for assigning ext ids to child records
-                        if child_logs:
-                            if child_count:
-                                child_count += 1
-                            else:
-                                child_count = 1
-                            child_log = child_logs[child_count - 1]
-                            additional_log_values.update(
-                                {"external_id": child_log.external_id}
-                            )
+                        if len(child_logs) == len(new_records) and new_records._name == child_logs.mapped('model_id').model:
+                            child_log = child_logs[cnt]
                             external_id = child_log.external_id
+                            additional_log_values.update(
+                                {"external_id": external_id}
+                            )
                             child_log.state = "Processed"
                             _set_external_id(self._name, new_record, external_id)
+                            cnt += 1
+                        # ToDo clean up logic for assigning ext ids to child records
+#                        if child_logs:
+#                            if child_count:
+#                                child_count += 1
+#                            else:
+#                                child_count = 1
+#                            child_log = child_logs[child_count - 1]
+#                            additional_log_values.update(
+#                                {"external_id": child_log.external_id}
+#                            )
+#                            external_id = child_log.external_id
+#                            child_log.state = "Processed"
+#                            _set_external_id(self._name, new_record, external_id)
                     # Note that the Log is created after the call is done
                     # (and depending calls are processed)
                     if not is_client:
@@ -188,26 +198,27 @@ class AuditlogRule(models.Model):
         def logged_method_call(self, *args, **kwargs):
             doing_sync = self.env.context.get("sync_auditlog_working")
             is_client = self.env.context.get("is_client")
-            if sync_type and not doing_sync:
-                uuid_num = uuid.uuid4()
-                self = self.with_context(sync_auditlog_working=uuid_num)
-                additional_log_values = {
-                    "log_type": "no_log",
-                    "uuid": uuid_num,
-                    "timestamp": datetime.now(),
-                    "resource_ids": self.ids,
-                    "raw_args_kwargs": args,  # FIXME: missing storing kwargs
-                    "context": self.env.context,
-                    "state": "captured",
-                }
-                if not is_client:
-                    self.env["auditlog.rule"].sudo().create_logs(
-                        self.env.uid,
-                        self._name,
-                        self.ids,
-                        method,
-                        additional_log_values=additional_log_values,
-                    )
+            for rec in self:
+                if sync_type and not doing_sync:
+                    uuid_num = uuid.uuid4()
+                    rec = rec.with_context(sync_auditlog_working=uuid_num)
+                    additional_log_values = {
+                        "log_type": "no_log",
+                        "uuid": uuid_num,
+                        "timestamp": datetime.now(),
+                        "resource_ids": rec.ids,
+                        "raw_args_kwargs": args,  # FIXME: missing storing kwargs
+                        "context": rec.env.context,
+                        "state": "captured",
+                    }
+                    if not is_client:
+                        self.env["auditlog.rule"].sudo().create_logs(
+                            rec.env.uid,
+                            rec._name,
+                            rec.ids,
+                            method,
+                            additional_log_values=additional_log_values,
+                        )
             result = logged_method_call.origin(self, *args, **kwargs)
             return result
 
