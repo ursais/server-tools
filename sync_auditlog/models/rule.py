@@ -120,7 +120,6 @@ class AuditlogRule(models.Model):
                     )
                     self = self.with_context(sync_auditlog_working=uuid_num)
                 elif update_ext_id:
-
                     child_logs = self.env["auditlog.log"].search(
                         [
                             ("parent_uuid", "=", update_ext_id),
@@ -202,6 +201,7 @@ class AuditlogRule(models.Model):
             if sync_type and not doing_sync:
                 uuid_num = uuid.uuid4()
                 self = self.with_context(sync_auditlog_working=uuid_num)
+
                 additional_log_values = {
                     "log_type": "no_log",
                     "uuid": uuid_num,
@@ -212,13 +212,19 @@ class AuditlogRule(models.Model):
                     "state": "captured",
                 }
                 if not is_client:
-                    self.env["auditlog.rule"].sudo().create_logs(
-                        self.env.uid,
-                        self._name,
-                        self.ids,
-                        method,
-                        additional_log_values=additional_log_values,
-                    )
+                    new_uuid = False
+                    for rec in self:
+                        if new_uuid:
+                            additional_log_values.update({"uuid": uuid.uuid4()})
+                        else:
+                            new_uuid = True
+                        self.env["auditlog.rule"].sudo().create_logs(
+                            self.env.uid,
+                            rec._name,
+                            rec.ids,
+                            method,
+                            additional_log_values=additional_log_values,
+                        )
             result = logged_method_call.origin(self, *args, **kwargs)
             return result
 
