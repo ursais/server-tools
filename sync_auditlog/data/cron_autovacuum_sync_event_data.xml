@@ -1,5 +1,5 @@
 <odoo>
-    <record model="ir.cron" id="ir_cron_apply_events">
+    <record model="ir.cron" id="ir_cron_autovacuum_events">
         <field name="name">Sync Auditlog : Autovacuum Old Sync Logs</field>
         <field name="interval_number">1</field>
         <field name="interval_type">days</field>
