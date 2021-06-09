@@ -102,6 +102,7 @@ class AuditlogRule(models.Model):
                 doing_sync = self.env.context.get("sync_auditlog_working")
                 update_ext_id = self.env.context.get("sync_apply_parent")
                 uuid_num = uuid.uuid4()
+                child_logs = False
                 additional_log_values = {
                     "log_type": "no_log",
                     "uuid": uuid_num,
@@ -119,38 +120,43 @@ class AuditlogRule(models.Model):
                         }
                     )
                     self = self.with_context(sync_auditlog_working=uuid_num)
-                elif update_ext_id:
-                    child_logs = self.env["auditlog.log"].search(
-                        [
-                            ("parent_uuid", "=", update_ext_id),
-                            ("state", "in", ("Pulled", "Processed")),
-                            ("model_name", "=", self._name),
-                        ],
-                        order="timestamp, model_id, res_id",
-                    )
-                    if child_logs:
-                        child_count = self.env.context.get("sync_child_count")
-
+#                elif update_ext_id:
+#                    child_logs = self.env["auditlog.log"].search(
+#                        [
+#                            ("parent_uuid", "=", update_ext_id),
+#                            ("state", "in", ("Pulled", "Processed")),
+#                            ("model_name", "=", self._name),
+#                        ],
+#                        order="timestamp, model_id, res_id",
+#                    )
+#                    if child_logs:
+#                        child_count = self.env.context.get("sync_child_count")
                 new_records = logged_create_call.origin(self, vals_list, **kwargs)
                 # Hotfix: Pass correct UUID to First record to identify Child Logs
                 new_uuid = False
                 is_client = self.env.context.get("is_client")
-                cnt = 0
                 for new_record in new_records:
                     if new_uuid:
                         additional_log_values.update({"uuid": uuid.uuid4()})
                     else:
                         new_uuid = True
-                    if update_ext_id and doing_sync:
-                        if len(child_logs) == len(new_records) and new_records._name == child_logs.mapped('model_id').model:
-                            child_log = child_logs[cnt]
+#                    if update_ext_id and doing_sync:
+                    if update_ext_id:
+                        child_log = self.env["auditlog.log"].search(
+                            [
+                                ("parent_uuid", "=", update_ext_id),
+                                ("state", "=", "Pulled"),
+                                ("model_name", "=", self._name),
+                            ], limit=1,
+                            order="timestamp, model_id, res_id",
+                        )
+                        if new_record._name == child_log.model_id.model:
                             external_id = child_log.external_id
                             additional_log_values.update(
                                 {"external_id": external_id}
                             )
                             child_log.state = "Processed"
                             _set_external_id(self._name, new_record, external_id)
-                            cnt += 1
                         # ToDo clean up logic for assigning ext ids to child records
 #                        if child_logs:
 #                            if child_count:
@@ -175,11 +181,11 @@ class AuditlogRule(models.Model):
                             additional_log_values=additional_log_values,
                         )
                 # ToDo Optimize the logic for handling child logs
-                if update_ext_id and doing_sync:
-                    if child_logs and child_count:
-                        if child_count >= len(child_logs):
-                            child_count = 0
-                        self = self.with_context(sync_child_count=child_count)
+#                if update_ext_id and doing_sync:
+#                    if child_logs and child_count:
+#                        if child_count >= len(child_logs):
+#                            child_count = 0
+#                        self = self.with_context(sync_child_count=child_count)
             else:
                 new_records = logged_create_call.origin(self, vals_list, **kwargs)
             return new_records
@@ -197,11 +203,9 @@ class AuditlogRule(models.Model):
         def logged_method_call(self, *args, **kwargs):
             doing_sync = self.env.context.get("sync_auditlog_working")
             is_client = self.env.context.get("is_client")
-#            for rec in self:
             if sync_type and not doing_sync:
                 uuid_num = uuid.uuid4()
                 self = self.with_context(sync_auditlog_working=uuid_num)
-
                 additional_log_values = {
                     "log_type": "no_log",
                     "uuid": uuid_num,
