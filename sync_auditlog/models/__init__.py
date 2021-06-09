@@ -3,3 +3,4 @@
 from . import rule
 from . import log
 from . import remote_server
+from . import ir_cron

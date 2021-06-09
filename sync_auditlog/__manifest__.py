@@ -18,6 +18,7 @@
         "views/remote_server_view.xml",
         "views/auditlog_rule_view.xml",
         "views/auditlog_log_view.xml",
+        "views/ir_cron_view.xml",
     ],
     "application": True,
     "installable": True,

@@ -266,7 +266,7 @@ class AuditlogLog(models.Model):
             self.result = e
 
     @staticmethod
-    def _pull_event_data(self, addr, uid, password, dbname):
+    def _pull_event_data(self, addr, uid, password, dbname, lastcall):
         try:
             events = xmlrpclib.ServerProxy("%s/xmlrpc/object" % (addr)).execute(
                 dbname,
@@ -274,7 +274,11 @@ class AuditlogLog(models.Model):
                 password,
                 "auditlog.log",
                 "search_read",
-                [("state", "in", ["Prepared", "Processed"]), ("user_id", "!=", uid)],
+                [
+                    ("state", "in", ["Prepared", "Processed"]),
+                    ("user_id", "!=", uid),
+                    ("write_date", ">=", lastcall),
+                ],
             )
         except Exception:
             raise ValidationError(
@@ -312,7 +316,7 @@ class AuditlogLog(models.Model):
                     continue
         return
 
-    def _cron_push_pull_event_data(self):
+    def _cron_push_pull_event_data(self, lastcall=False):
 
         server = self.env["auditlog.remote.server"].search([], limit=1)
         if server:
@@ -333,14 +337,25 @@ class AuditlogLog(models.Model):
                     _("Could not authenticate user on the remote server")
                 )
             if uid:
+                sync_auditlog_push_pull_data = self.env.ref(
+                    "sync_auditlog.ir_cron_push_pull_events", raise_if_not_found=False,
+                )
+                if lastcall:
+                    lastcall = datetime.strptime(lastcall, "%Y-%m-%d %H:%M:%S")
+                else:
+                    lastcall = sync_auditlog_push_pull_data.lastcall
                 # Push event data that is in prepared state
-                events = self.search([("state", "=", "Prepared")])
+                events = self.search(
+                    [("state", "=", "Prepared"), ("write_date", ">=", lastcall)]
+                )
                 for event in events:
                     event._push_event_data(addr, uid, password, dbname)
 
                 # Pull event data from remote server
                 # that is in Prepared or Processed state
-                self._pull_event_data(self, addr, uid, password, dbname)
+                self._pull_event_data(
+                    self, addr, uid, password, dbname, lastcall=lastcall
+                )
         return
 
     def _fetch_master_data(self, model_name):

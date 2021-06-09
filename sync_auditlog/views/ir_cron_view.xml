@@ -1,0 +1,12 @@
+<odoo>
+    <record id="ir_cron_view_form_inherit_sync_auditlog" model="ir.ui.view">
+        <field name="name">ir.cron.view.form</field>
+        <field name="model">ir.cron</field>
+        <field name="inherit_id" ref="base.ir_cron_view_form" />
+        <field name="arch" type="xml">
+            <field name="nextcall" position="after">
+                <field name="lastcall" groups="base.group_no_one" />
+            </field>
+        </field>
+    </record>
+</odoo>
