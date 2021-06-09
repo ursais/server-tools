@@ -603,3 +603,14 @@ class AuditlogLog(models.Model):
     def reprocess_error_events(self):
         events = self.filtered(lambda event: event.state == "Error")
         events.with_context(reprocess_events=True).apply_event_data()
+
+    def _cron_autovacuum_sync_event_data(self, days):
+        days = (days > 0) and int(days) or 0
+        deadline = datetime.datetime.now() - datetime.timedelta(days=days)
+        events = self.search(
+            [
+                ("state", "in", ["Pushed", "Processed"]),
+                ("create_date", "<=", fields.Datetime.to_string(deadline)),
+            ]
+        )
+        events.unlink()

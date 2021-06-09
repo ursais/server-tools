@@ -1,0 +1,12 @@
+<odoo>
+    <record model="ir.cron" id="ir_cron_apply_events">
+        <field name="name">Sync Auditlog : Autovacuum Old Sync Logs</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="doall" eval="False" />
+        <field name="model_id" ref="auditlog.model_auditlog_log" />
+        <field name="code">model._cron_autovacuum_sync_event_data(180)</field>
+        <field name="state">code</field>
+    </record>
+</odoo>

@@ -15,6 +15,7 @@
         "data/cron_push_pull_event_data.xml",
         "data/cron_initialize_master_data.xml",
         "data/cron_apply_event_data.xml",
+        "data/cron_autovacuum_sync_event_data.xml",
         "views/remote_server_view.xml",
         "views/auditlog_rule_view.xml",
         "views/auditlog_log_view.xml",
