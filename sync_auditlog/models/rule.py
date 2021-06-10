@@ -27,6 +27,7 @@ def _set_external_id(model_name, record, xmlid):
         data = ModelData.browse(data_id)
         data.res_id = record.id
 
+
 # TODO: implement these methods in ir.model.data object
 def _get_external_id(record):
     # code reference from from odoo BaseModel.__ensure_xml_id()

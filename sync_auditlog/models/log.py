@@ -548,35 +548,15 @@ class AuditlogLog(models.Model):
             except Exception:
                 pass
             if event.method == "create":
-                if target_record:
-                    _logger.warn("Can't create, %s already exists", event.external_id)
-                    event.state = "Cancelled"
-                else:
-                    try:
-                        with self.env.cr.savepoint():
-                            new_record = target_model.with_context(
-                                mail_create_nosubscribe=True
-                            ).create(args_kwargs)
-                            event.state = "Processed"
-                            _set_external_id(
-                                event.model_name, new_record, event.external_id
-                            )
-                    except Exception as e:
-                        event.result = str(e)
-                        event.state = "Failed" if event.state == "Error" else "Error"
-                        break
+                create_result = event.apply_create(
+                    target_record, target_model, args_kwargs
+                )
+                if create_result is False:
+                    break
             elif target_record:
                 method = getattr(target_record.with_user(event_user), event.method)
-                try:
-                    with self.env.cr.savepoint():
-                        if not args_kwargs:
-                            method()
-                        else:
-                            method(args_kwargs)
-                        event.state = "Processed"
-                except Exception as e:
-                    event.result = str(e)
-                    event.state = "Failed" if event.state == "Error" else "Error"
+                apply_result = event.apply_method(args_kwargs, method)
+                if apply_result is False:
                     break
             elif not target_record:
                 _logger.warn(
@@ -614,3 +594,35 @@ class AuditlogLog(models.Model):
             ]
         )
         events.unlink()
+
+    def apply_create(self, target_record, target_model, args_kwargs):
+        if target_record:
+            _logger.warn("Can't create, %s already exists", self.external_id)
+            self.state = "Cancelled"
+        else:
+            try:
+                with self.env.cr.savepoint():
+                    new_record = target_model.with_context(
+                        mail_create_nosubscribe=True
+                    ).create(args_kwargs)
+                    self.state = "Processed"
+                    _set_external_id(self.model_name, new_record, self.external_id)
+                return True
+            except Exception as e:
+                self.result = str(e)
+                self.state = "Failed" if self.state == "Error" else "Error"
+                return False
+
+    def apply_method(self, args_kwargs, method):
+        try:
+            with self.env.cr.savepoint():
+                if not args_kwargs:
+                    method()
+                else:
+                    method(args_kwargs)
+                self.state = "Processed"
+                return True
+        except Exception as e:
+            self.result = str(e)
+            self.state = "Failed" if self.state == "Error" else "Error"
+            return False
