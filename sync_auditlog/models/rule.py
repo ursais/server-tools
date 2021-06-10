@@ -7,8 +7,6 @@ from datetime import datetime
 
 from odoo import api, fields, models
 
-# from odoo.addons.auditlog.models.rule import FIELDS_BLACKLIST
-
 _logger = logging.getLogger(__name__)
 
 
@@ -28,6 +26,33 @@ def _set_external_id(model_name, record, xmlid):
         data_id = ModelData.xmlid_lookup(xmlid)[0]
         data = ModelData.browse(data_id)
         data.res_id = record.id
+
+# TODO: implement these methods in ir.model.data object
+def _get_external_id(record):
+    # code reference from from odoo BaseModel.__ensure_xml_id()
+    # for generating the external_id
+    """Create missing external ids for records, and return an
+        dict of pairs ``(record, xmlid)`` for the records.
+
+    :rtype: {'record': [Model, str | None]}
+    """
+    record and record.ensure_one()
+
+    res = record._get_external_ids()
+    if res[record.id]:
+        return res
+
+    modname = "__sync_process__"
+    # create missing xml id
+    rec_name = "{}_{}_{}".format(record._table, record.id, uuid.uuid4().hex[:8])
+    vals = {
+        "module": modname,
+        "model": record._name,
+        "name": rec_name,
+        "res_id": record.id,
+    }
+    record.env["ir.model.data"].create(vals)
+    return record._get_external_ids()
 
 
 class AuditlogRule(models.Model):
@@ -102,7 +127,6 @@ class AuditlogRule(models.Model):
                 doing_sync = self.env.context.get("sync_auditlog_working")
                 update_ext_id = self.env.context.get("sync_apply_parent")
                 uuid_num = uuid.uuid4()
-                child_logs = False
                 additional_log_values = {
                     "log_type": "no_log",
                     "uuid": uuid_num,
@@ -112,7 +136,6 @@ class AuditlogRule(models.Model):
                     "parent_uuid": doing_sync,
                 }
                 if not doing_sync:
-                    # Top create call stores a regular sync record
                     additional_log_values.update(
                         {
                             "raw_args_kwargs": vals_list,  # FIXME missing store kwargs
@@ -120,17 +143,6 @@ class AuditlogRule(models.Model):
                         }
                     )
                     self = self.with_context(sync_auditlog_working=uuid_num)
-#                elif update_ext_id:
-#                    child_logs = self.env["auditlog.log"].search(
-#                        [
-#                            ("parent_uuid", "=", update_ext_id),
-#                            ("state", "in", ("Pulled", "Processed")),
-#                            ("model_name", "=", self._name),
-#                        ],
-#                        order="timestamp, model_id, res_id",
-#                    )
-#                    if child_logs:
-#                        child_count = self.env.context.get("sync_child_count")
                 new_records = logged_create_call.origin(self, vals_list, **kwargs)
                 # Hotfix: Pass correct UUID to First record to identify Child Logs
                 new_uuid = False
@@ -140,38 +152,21 @@ class AuditlogRule(models.Model):
                         additional_log_values.update({"uuid": uuid.uuid4()})
                     else:
                         new_uuid = True
-#                    if update_ext_id and doing_sync:
                     if update_ext_id:
                         child_log = self.env["auditlog.log"].search(
                             [
                                 ("parent_uuid", "=", update_ext_id),
                                 ("state", "=", "Pulled"),
                                 ("model_name", "=", self._name),
-                            ], limit=1,
+                            ],
+                            limit=1,
                             order="timestamp, model_id, res_id",
                         )
                         if new_record._name == child_log.model_id.model:
                             external_id = child_log.external_id
-                            additional_log_values.update(
-                                {"external_id": external_id}
-                            )
+                            additional_log_values.update({"external_id": external_id})
                             child_log.state = "Processed"
                             _set_external_id(self._name, new_record, external_id)
-                        # ToDo clean up logic for assigning ext ids to child records
-#                        if child_logs:
-#                            if child_count:
-#                                child_count += 1
-#                            else:
-#                                child_count = 1
-#                            child_log = child_logs[child_count - 1]
-#                            additional_log_values.update(
-#                                {"external_id": child_log.external_id}
-#                            )
-#                            external_id = child_log.external_id
-#                            child_log.state = "Processed"
-#                            _set_external_id(self._name, new_record, external_id)
-                    # Note that the Log is created after the call is done
-                    # (and depending calls are processed)
                     if not is_client:
                         self.env["auditlog.rule"].sudo().create_logs(
                             self.env.uid,
@@ -180,12 +175,6 @@ class AuditlogRule(models.Model):
                             "create",
                             additional_log_values=additional_log_values,
                         )
-                # ToDo Optimize the logic for handling child logs
-#                if update_ext_id and doing_sync:
-#                    if child_logs and child_count:
-#                        if child_count >= len(child_logs):
-#                            child_count = 0
-#                        self = self.with_context(sync_child_count=child_count)
             else:
                 new_records = logged_create_call.origin(self, vals_list, **kwargs)
             return new_records
@@ -222,6 +211,10 @@ class AuditlogRule(models.Model):
                             additional_log_values.update({"uuid": uuid.uuid4()})
                         else:
                             new_uuid = True
+                        if method == "unlink":
+                            res = _get_external_id(rec)
+                            xml_id = res[rec.id] and res[rec.id][0] or False
+                            additional_log_values.update({"external_id": xml_id})
                         self.env["auditlog.rule"].sudo().create_logs(
                             self.env.uid,
                             rec._name,

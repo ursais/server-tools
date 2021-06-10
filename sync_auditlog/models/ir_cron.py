@@ -4,7 +4,7 @@
 from odoo import fields, models
 
 
-class ir_cron(models.Model):
+class IrCron(models.Model):
     _inherit = "ir.cron"
 
     lastcall = fields.Datetime(
