@@ -356,6 +356,7 @@ class AuditlogLog(models.Model):
                 self._pull_event_data(
                     self, addr, uid, password, dbname, lastcall=lastcall
                 )
+                sync_auditlog_push_pull_data.lastcall = fields.Datetime.now()
         return
 
     def _fetch_master_data(self, model_name):
