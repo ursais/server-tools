@@ -271,8 +271,8 @@ class AuditlogCommon:
 
 
 class TestAuditlogFull(TransactionCase, AuditlogCommon):
-    def setUp(self):
-        super().setUp()
+    def setUpClass(self):
+        super().setUpClass()
         self.groups_model_id = self.env.ref("base.model_res_groups").id
         self.groups_rule = self.env["auditlog.rule"].create(
             {
@@ -292,8 +292,8 @@ class TestAuditlogFull(TransactionCase, AuditlogCommon):
 
 
 class TestAuditlogFast(TransactionCase, AuditlogCommon):
-    def setUp(self):
-        super().setUp()
+    def setUpClass(self):
+        super().setUpClass()
         self.groups_model_id = self.env.ref("base.model_res_groups").id
         self.groups_rule = self.env["auditlog.rule"].create(
             {
@@ -407,8 +407,8 @@ class TestFieldRemoval(TransactionCase):
 
 
 class TestAuditlogFullCaptureRecord(TransactionCase, AuditlogCommon):
-    def setUp(self):
-        super().setUp()
+    def setUpClass(self):
+        super().setUpClass()
         self.groups_model_id = self.env.ref("base.model_res_groups").id
         self.groups_rule = self.env["auditlog.rule"].create(
             {
