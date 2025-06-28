@@ -1,0 +1,30 @@
+<!--
+    © Daniel Reis
+    Copyright (c) 2025 Daniel Reis
+    License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl-3.0.html)
+-->
+
+<odoo>
+  <record id="view_server_queue_search" model="ir.ui.view">
+    <field name="name">server.queue.search</field>
+    <field name="model">server.queue</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="name"/>
+        <filter name="filter_failed" string="Failed" domain="[('state', '=', 'failed')]"/>
+        <filter name="filter_to_retry" string="To Retry" domain="[('state', '=', 'retry')]"/>
+        <filter name="filter_exceeded" string="Failed (Max Retries)" domain="[('state', '=', 'fail')]"/>
+        <filter name="filter_done" string="Done" domain="[('state', '=', 'done')]"/>
+        <filter name="filter_pending" string="Pending" domain="[('state', '=', 'pending')]"/>
+        <filter name="filter_running" string="Running" domain="[('state', '=', 'running')]"/>
+        <filter name="filter_today" string="Today" domain="[('create_date', '>=', (context_today().strftime('%%Y-%%m-%%d 00:00:00')))]"/>
+
+        <group expand="1" string="Group By">
+          <filter name="group_by_model" string="Model" context="{'group_by': 'model_name'}"/>
+          <filter name="group_by_state" string="State" context="{'group_by': 'state'}"/>
+          <filter name="group_by_date" string="Created Day" context="{'group_by': 'create_date'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+</odoo>

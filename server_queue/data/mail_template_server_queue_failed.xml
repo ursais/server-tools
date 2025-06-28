@@ -1,0 +1,26 @@
+<!--
+    © Daniel Reis
+    Copyright (c) 2025 Daniel Reis
+    License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl-3.0.html)
+-->
+
+<odoo>
+  <record id="mail_template_server_queue_failed" model="mail.template">
+    <field name="name">Server Queue Failure Summary</field>
+    <field name="model_id" ref="model_server_queue"/>
+    <field name="subject">[Odoo] Server Queue: ${object._context.get('job_count')} Failed Job(s)</field>
+    <field name="email_from">${user.email_formatted}</field>
+    <field name="email_to">${user.email}</field>
+    <field name="body_html" type="html">
+      <![CDATA[
+      <p>Hello,</p>
+      <p>The server queue has <strong>${object._context.get('job_count')}</strong> failed job(s).</p>
+      <ul>
+        <li>Models involved: ${', '.join(set(object._context.get('models', [])))}</li>
+        <li>Last failure: ${object._context.get('last_failure')}</li>
+      </ul>
+      <p><a href="/web#model=server.queue&amp;view_type=list&amp;cids=1&amp;menu_id=">View Failed Jobs</a></p>
+      ]]>
+    </field>
+  </record>
+</odoo>
