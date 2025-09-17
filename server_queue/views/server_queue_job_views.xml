@@ -3,47 +3,61 @@
     Copyright (c) 2025 Daniel Reis
     License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl-3.0.html)
 -->
-
 <odoo>
-  <record id="view_server_queue_form" model="ir.ui.view">
-    <field name="name">server.queue.form</field>
-    <field name="model">server.queue</field>
-    <field name="arch" type="xml">
-      <form>
-        <header>
-          <button name="action_run_now" type="object" string="Run Now"
-                  class="btn-primary" invisible="state in ('done', 'failed')"/>
-          <button name="action_cancel" type="object" string="Cancel"
-                  class="btn-secondary" invisible="state == 'failed'"/>
-          <button name="action_reset_pending" type="object" string="Set to Pending"
-                  class="btn-light" invisible="state == 'pending'"/>
-        </header>
-        <sheet>
-          <group>
-            <field name="name"/>
-            <field name="server_action_id"/>
-            <field name="model_name"/>
-            <field name="res_id"/>
-            <field name="method_name" invisible="bool(server_action_id)"/>
-            <field name="args" invisible="bool(server_action_id)"/>
-            <field name="kwargs"/>
-            <field name="state" readonly="1"/>
-            <field name="result" readonly="1"/>
-            <field name="exception" readonly="1"/>
-          </group>
-        </sheet>
-      </form>
-    </field>
-  </record>
+    <record id="view_server_queue_form" model="ir.ui.view">
+        <field name="name">server.queue.form</field>
+        <field name="model">server.queue</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button
+                        name="action_run_now"
+                        type="object"
+                        string="Run Now"
+                        class="btn-primary"
+                        invisible="state in ('done', 'failed')"
+                    />
+                    <button
+                        name="action_cancel"
+                        type="object"
+                        string="Cancel"
+                        class="btn-secondary"
+                        invisible="state == 'failed'"
+                    />
+                    <button
+                        name="action_reset_pending"
+                        type="object"
+                        string="Set to Pending"
+                        class="btn-light"
+                        invisible="state == 'pending'"
+                    />
+                </header>
+                <sheet>
+                    <group>
+                        <field name="name" />
+                        <field name="server_action_id" />
+                        <field name="model_name" />
+                        <field name="res_id" />
+                        <field name="method_name" invisible="bool(server_action_id)" />
+                        <field name="args" invisible="bool(server_action_id)" />
+                        <field name="kwargs" />
+                        <field name="state" readonly="1" />
+                        <field name="result" readonly="1" />
+                        <field name="exception" readonly="1" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
 
-  <record id="view_ir_actions_server_form_inherit_queue" model="ir.ui.view">
-    <field name="name">ir.actions.server.form.inherit.server.queue</field>
-    <field name="model">ir.actions.server</field>
-    <field name="inherit_id" ref="base.view_server_action_form"/>
-    <field name="arch" type="xml">
-      <field name="state" position="after">
-        <field name="enqueue_server_action"/>
-      </field>
-    </field>
-  </record>
+    <record id="view_ir_actions_server_form_inherit_queue" model="ir.ui.view">
+        <field name="name">ir.actions.server.form.inherit.server.queue</field>
+        <field name="model">ir.actions.server</field>
+        <field name="inherit_id" ref="base.view_server_action_form" />
+        <field name="arch" type="xml">
+            <field name="state" position="after">
+                <field name="enqueue_server_action" />
+            </field>
+        </field>
+    </record>
 </odoo>

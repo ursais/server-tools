@@ -3,15 +3,22 @@
     Copyright (c) 2025 Daniel Reis
     License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl-3.0.html)
 -->
-
 <odoo>
-  <menuitem id="menu_server_queue_app_root" name="Server Queue" sequence="10"/>
+    <menuitem id="menu_server_queue_app_root" name="Server Queue" sequence="10" />
 
-  <menuitem id="menu_server_queue_jobs" name="Jobs"
-            parent="menu_server_queue_app_root"
-            action="action_server_queue" sequence="1"/>
+    <menuitem
+        id="menu_server_queue_jobs"
+        name="Jobs"
+        parent="menu_server_queue_app_root"
+        action="action_server_queue"
+        sequence="1"
+    />
 
-  <menuitem id="menu_server_queue_server_actions" name="Server Actions"
-            parent="menu_server_queue_app_root"
-            action="base.ir_actions_server_act_window" sequence="2"/>
+    <menuitem
+        id="menu_server_queue_server_actions"
+        name="Server Actions"
+        parent="menu_server_queue_app_root"
+        action="base.ir_actions_server_act_window"
+        sequence="2"
+    />
 </odoo>

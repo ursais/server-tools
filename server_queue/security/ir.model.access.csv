@@ -1,3 +1,5 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_server_queue_readonly,server.queue.readonly,model_server_queue,server_queue.group_server_queue_readonly,1,0,0,0
 access_server_queue_full,server.queue.full,model_server_queue,server_queue.group_server_queue_full_access,1,1,1,1
+
+server.queue.group,access_server_queue_group,model_server_queue_group,base.group_user,1,0,0,0

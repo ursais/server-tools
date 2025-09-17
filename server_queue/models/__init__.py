@@ -3,3 +3,4 @@
 
 from . import server_queue
 from . import ir_actions_server
+from . import server_queue_group

@@ -3,16 +3,15 @@
     Copyright (c) 2025 Daniel Reis
     License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl-3.0.html)
 -->
-
 <odoo>
-  <record id="ir_cron_server_queue_cleanup" model="ir.cron">
-    <field name="name">Cleanup Done Server Queue Jobs</field>
-    <field name="model_id" ref="model_server_queue"/>
-    <field name="state">code</field>
-    <field name="code">model.cleanup_done_jobs(days=30)</field>
-    <field name="interval_number">1</field>
-    <field name="interval_type">days</field>
-    <field name="numbercall">-1</field>
-    <field name="active">True</field>
-  </record>
+    <record id="ir_cron_server_queue_cleanup" model="ir.cron">
+        <field name="name">Cleanup Done Server Queue Jobs</field>
+        <field name="model_id" ref="model_server_queue" />
+        <field name="state">code</field>
+        <field name="code">model.cleanup_done_jobs(days=30)</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="active">True</field>
+    </record>
 </odoo>
