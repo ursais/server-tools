@@ -113,9 +113,9 @@ class ExceptionRule(models.Model):
             "sequence": self.sequence,
             "model": self.model,
             "exception_type": self.exception_type,
-            "domain": self._get_domain()
-            if self.exception_type == "by_domain"
-            else None,
+            "domain": (
+                self._get_domain() if self.exception_type == "by_domain" else None
+            ),
             "method": self.method,
             "code": self.code,
             "is_blocking": self.is_blocking,
