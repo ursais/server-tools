@@ -451,7 +451,6 @@ def convert_inherit_attributes_inplace(spec, target_node, view_type):
     all_attrs.sort()
 
     i = len(all_attrs)
-    next_xml = ""
 
     for attr in all_attrs:
         value = items.get(attr)

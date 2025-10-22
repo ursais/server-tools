@@ -697,9 +697,7 @@ class AuditlogRule(models.Model):
         act_window_model = self.env["ir.actions.act_window"]
         for rule in self:
             # Create a shortcut to view logs
-            domain = "[('model_id', '=', %s), ('res_id', '=', id)]" % (
-                rule.model_id.id
-            )
+            domain = "[('model_id', '=', %s), ('res_id', '=', id)]" % (rule.model_id.id)
             vals = {
                 "name": _("View logs"),
                 "res_model": "auditlog.log",
