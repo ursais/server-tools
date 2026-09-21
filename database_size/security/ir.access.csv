@@ -1,5 +1,5 @@
 id,name,model_id,group_id/id,operation,domain
-access_ir_model_size,access_ir_model_size,model_ir_model_size,base.group_system,ru,
-access_ir_model_index_size,access_ir_model_index_size,model_ir_model_index_size,base.group_system,ru,
-access_ir_model_size_report,access_ir_model_size_report,model_ir_model_size_report,base.group_system,r,
-access_ir_model_relation_size,access_ir_model_relation_size,model_ir_model_relation_size,base.group_system,ru,
+access_ir_model_size,access_ir_model_size,ir.model.size,base.group_system,ru,
+access_ir_model_index_size,access_ir_model_index_size,ir.model.index.size,base.group_system,ru,
+access_ir_model_size_report,access_ir_model_size_report,ir.model.size.report,base.group_system,r,
+access_ir_model_relation_size,access_ir_model_relation_size,ir.model.relation.size,base.group_system,ru,

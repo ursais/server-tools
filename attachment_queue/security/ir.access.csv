@@ -1,4 +1,4 @@
 id,name,model_id,group_id/id,operation,domain
-access_attachment_queue_user,attachment.queue.user,model_attachment_queue,base.group_user,r,
-access_attachment_queue_manager,attachment.queue.manager,model_attachment_queue,base.group_no_one,crud,
-access_attachment_reschedule_wizard,Attachment Queue Reschedule,attachment_queue.model_attachment_queue_reschedule,base.group_no_one,crud,
+access_attachment_queue_user,attachment.queue.user,attachment.queue,base.group_user,r,
+access_attachment_queue_manager,attachment.queue.manager,attachment.queue,base.group_no_one,crud,
+access_attachment_reschedule_wizard,Attachment Queue Reschedule,attachment.queue.reschedule,base.group_no_one,crud,
