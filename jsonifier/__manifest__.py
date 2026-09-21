@@ -6,7 +6,7 @@
 {
     "name": "JSONifier",
     "summary": "JSON-ify data for all models",
-    "version": "18.0.1.1.0",
+    "version": "20.0.1.1.0",
     "category": "Uncategorized",
     "website": "https://github.com/OCA/server-tools",
     "author": "Akretion, ACSONE, Camptocamp, Odoo Community Association (OCA)",
@@ -14,13 +14,11 @@
     "installable": True,
     "depends": ["base"],
     "data": [
-        "security/ir.model.access.csv",
+        "security/ir.access.csv",
         "views/ir_exports_view.xml",
-        "views/ir_exports_resolver_view.xml",
-    ],
+        "views/ir_exports_resolver_view.xml"],
     "demo": [
         "demo/resolver_demo.xml",
         "demo/export_demo.xml",
-        "demo/ir.exports.line.csv",
-    ],
+        "demo/ir.exports.line.csv"],
 }

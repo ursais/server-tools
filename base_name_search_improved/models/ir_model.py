@@ -214,7 +214,7 @@ class IrModel(models.Model):
 
     @api.constrains("name_search_ids", "name_search_domain", "add_smart_search")
     def update_search_wo_restart(self):
-        self.env.registry.clear_cache()
+        self.env.transaction.invalidate_ormcache()
 
     @api.constrains("name_search_domain")
     def check_name_search_domain(self):
@@ -239,7 +239,7 @@ class IrModel(models.Model):
 
     def write(self, vals):
         if "add_smart_search" in vals:
-            self.env.registry.clear_cache("templates")
+            self.env.transaction.invalidate_ormcache("templates")
         return super().write(vals)
 
     def _register_hook(self):

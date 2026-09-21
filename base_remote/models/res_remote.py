@@ -16,7 +16,10 @@ class ResRemote(models.Model):
         required=True, help="Shows if the remote can be found through the socket"
     )
 
-    _sql_constraints = [("name_unique", "unique(name)", "Hostname must be unique")]
+    _name_unique = models.Constraint(
+        'unique(name)',
+        "Hostname must be unique",
+    )
 
     @api.model
     def _create_vals(self, addr, hostname):

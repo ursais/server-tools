@@ -6,7 +6,7 @@
 {
     "name": "Database Auto-Backup",
     "summary": "Backups database",
-    "version": "19.0.1.0.1",
+    "version": "20.0.1.0.1",
     "author": "Yenthe Van Ginneken, "
     "Agile Business Group, "
     "Grupo ESOC Ingenieria de Servicios, "
@@ -20,9 +20,8 @@
     "data": [
         "data/ir_cron.xml",
         "data/mail_message_subtype.xml",
-        "security/ir.model.access.csv",
-        "view/db_backup_view.xml",
-    ],
+        "security/ir.access.csv",
+        "view/db_backup_view.xml"],
     "installable": True,
     "external_dependencies": {"python": ["paramiko<4.0.0", "pysftp", "cryptography"]},
 }

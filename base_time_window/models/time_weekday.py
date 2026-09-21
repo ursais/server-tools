@@ -43,17 +43,17 @@ class TimeWeekday(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
-        self.env.registry.clear_cache()
+        self.env.transaction.invalidate_ormcache()
         return records
 
     def write(self, vals):
         result = super().write(vals)
-        self.env.registry.clear_cache()
+        self.env.transaction.invalidate_ormcache()
         return result
 
     def unlink(self):
         result = super().unlink()
-        self.env.registry.clear_cache()
+        self.env.transaction.invalidate_ormcache()
         return result
 
     def _get_next_weekday_date(self, date_from=False, include_date_from=True):

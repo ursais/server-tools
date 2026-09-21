@@ -5,7 +5,7 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 {
     "name": "Exception Rule",
-    "version": "19.0.1.0.0",
+    "version": "20.0.1.0.0",
     "development_status": "Mature",
     "category": "Generic Modules",
     "summary": """
@@ -19,9 +19,8 @@
     "license": "AGPL-3",
     "data": [
         "security/base_exception_security.xml",
-        "security/ir.model.access.csv",
+        "security/ir.access.csv",
         "wizard/base_exception_confirm_view.xml",
-        "views/base_exception_view.xml",
-    ],
+        "views/base_exception_view.xml"],
     "installable": True,
 }

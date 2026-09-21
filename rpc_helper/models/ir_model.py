@@ -46,5 +46,5 @@ class IrModel(models.Model):
     def write(self, vals):
         res = super().write(vals)
         if "rpc_config_edit" in vals:
-            self.env.registry.clear_cache()
+            self.env.transaction.invalidate_ormcache()
         return res

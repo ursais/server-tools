@@ -124,15 +124,15 @@ class ExceptionRule(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         res = super().create(vals_list)
-        self.env.registry.clear_cache()
+        self.env.transaction.invalidate_ormcache()
         return res
 
     def write(self, vals):
         res = super().write(vals)
-        self.env.registry.clear_cache()
+        self.env.transaction.invalidate_ormcache()
         return res
 
     def unlink(self):
         res = super().unlink()
-        self.env.registry.clear_cache()
+        self.env.transaction.invalidate_ormcache()
         return res

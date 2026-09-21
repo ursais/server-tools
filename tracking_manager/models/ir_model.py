@@ -158,5 +158,5 @@ class IrModel(models.Model):
 
     def write(self, vals):
         if "active_custom_tracking" in vals:
-            self.env.registry.clear_cache()
+            self.env.transaction.invalidate_ormcache()
         return super().write(vals)

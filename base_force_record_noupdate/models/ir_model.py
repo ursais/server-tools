@@ -13,20 +13,20 @@ class IrModel(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         mods = super().create(vals_list)
-        self.env.registry.clear_cache()
+        self.env.transaction.invalidate_ormcache()
         self._propagate_noupdate_to_model_data()
         return mods
 
     def write(self, vals):
         res = super().write(vals)
         if "force_noupdate" in vals:
-            self.env.registry.clear_cache()
+            self.env.transaction.invalidate_ormcache()
             self._propagate_noupdate_to_model_data()
         return res
 
     def unlink(self):
         res = super().unlink()
-        self.env.registry.clear_cache()
+        self.env.transaction.invalidate_ormcache()
         return res
 
     def _get_noupdate_models(self):
